@@ -1,0 +1,72 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable
+{
+    /** @use HasFactory<UserFactory> */
+    use HasApiTokens, HasFactory, Notifiable;
+
+    public const ROLE_USER = 'user';
+
+    public const ROLE_MODERATOR = 'moderator';
+
+    public const ROLE_ADMIN = 'admin';
+
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'phone',
+        'avatar',
+        'role',
+        'points',
+        'verified',
+        'banned_at',
+        'submission_streak',
+        'last_submission_date',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
+            'verified' => 'boolean',
+            'banned_at' => 'datetime',
+            'last_submission_date' => 'date',
+        ];
+    }
+
+    public function priceSubmissions(): HasMany
+    {
+        return $this->hasMany(PriceSubmission::class);
+    }
+
+    public function marketWatches(): HasMany
+    {
+        return $this->hasMany(UserMarketWatch::class);
+    }
+
+    public function isAdminOrModerator(): bool
+    {
+        return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_MODERATOR], true);
+    }
+
+    public function isBanned(): bool
+    {
+        return $this->banned_at !== null;
+    }
+}
