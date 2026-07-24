@@ -38,8 +38,13 @@
                     <td><span class="pill">{{ $s->status }}</span></td>
                     <td style="white-space:nowrap;">
                         @if ($s->status === 'pending')
-                            <form method="post" action="{{ route('admin.submissions.approve', $s->id) }}" style="display:inline;">
+                            <form method="post" action="{{ route('admin.submissions.approve', $s->id) }}" style="display:inline-flex;gap:6px;align-items:center;">
                                 @csrf
+                                <select name="confidence_level" style="padding:6px 8px;border-radius:8px;border:1px solid #E5E7EB;font-size:12px;">
+                                    <option value="medium" selected>Confident</option>
+                                    <option value="high">High confidence</option>
+                                    <option value="low">Low confidence</option>
+                                </select>
                                 <button class="btn btn-primary" type="submit">Approve</button>
                             </form>
                             <form method="post" action="{{ route('admin.submissions.reject', $s->id) }}" style="display:inline;">

@@ -13,12 +13,25 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->redirectGuestsTo(fn () => route('admin.login'));
+        // Must run before StartSession so admin/developer get separate cookies.
+        $middleware->web(prepend: [
+            \App\Http\Middleware\ConfigurePortalSession::class,
+        ]);
+
+        $middleware->redirectGuestsTo(function ($request) {
+            if ($request->is('developer') || $request->is('developer/*')) {
+                return route('developer.login');
+            }
+
+            return route('admin.login');
+        });
 
         $middleware->alias([
             'not_banned' => \App\Http\Middleware\EnsureNotBanned::class,
             'admin_role' => \App\Http\Middleware\EnsureAdminRole::class,
             'web_admin' => \App\Http\Middleware\EnsureWebAdmin::class,
+            'developer' => \App\Http\Middleware\EnsureDeveloper::class,
+            'public_api_key' => \App\Http\Middleware\EnsurePublicApiKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

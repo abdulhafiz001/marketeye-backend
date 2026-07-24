@@ -15,7 +15,7 @@ class PriceSnapshotPresenter
     }
 
     /**
-     * @return 'high'|'low'|'stale'
+     * @return 'high'|'medium'|'low'|'stale'
      */
     public static function confidenceLevel(PriceSnapshot $snapshot): string
     {
@@ -23,12 +23,23 @@ class PriceSnapshotPresenter
             return 'stale';
         }
 
-        if ($snapshot->low_confidence || (int) $snapshot->submission_count < 2) {
+        // Admin manual prices are trusted.
+        if ($snapshot->snapshot_source === PriceSnapshot::SOURCE_MANUAL && ! $snapshot->low_confidence) {
+            return 'high';
+        }
+
+        if ($snapshot->low_confidence) {
             return 'low';
         }
 
-        if ((int) $snapshot->submission_count >= 3) {
+        $count = (int) $snapshot->submission_count;
+
+        if ($count >= 3) {
             return 'high';
+        }
+
+        if ($count >= 1) {
+            return 'medium';
         }
 
         return 'low';

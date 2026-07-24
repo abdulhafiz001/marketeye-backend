@@ -13,31 +13,12 @@ class ExternalSeedController extends Controller
     use ApiResponse;
 
     /**
-     * POST body: { "source": "worldbank" | "wfp" | "all" } (default all)
+     * Create stale-snapshot review items for admin approval.
      */
     public function run(Request $request, ExternalDataSeedService $service): JsonResponse
     {
-        $source = $request->input('source', 'all');
-        $data = [];
-
-        if ($source === 'all' || $source === 'worldbank') {
-            $data['worldbank'] = $service->runWorldBankSeed($request->user());
-        }
-
-        if ($source === 'all' || $source === 'wfp') {
-            $data['wfp'] = $service->runWfpSeed($request->user());
-        }
-
-        return $this->success($data);
-    }
-
-    public function worldBank(Request $request, ExternalDataSeedService $service): JsonResponse
-    {
-        return $this->success(['worldbank' => $service->runWorldBankSeed($request->user())]);
-    }
-
-    public function wfp(Request $request, ExternalDataSeedService $service): JsonResponse
-    {
-        return $this->success(['wfp' => $service->runWfpSeed($request->user())]);
+        return $this->success([
+            'stale_review' => $service->runStaleSnapshotReview($request->user()),
+        ]);
     }
 }

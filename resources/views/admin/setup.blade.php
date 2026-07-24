@@ -22,7 +22,7 @@
     <div class="card">
         <div class="badge">FIRST ADMIN</div>
         <h1>Create the admin account</h1>
-        <p>This page only works while there is no admin account yet.</p>
+        <p>This page only works while there is no admin account yet. Admin emails are stored separately from mobile app users — you can reuse the same email as a shopper account.</p>
 
         @if ($errors->any())
             <div class="err">{{ $errors->first() }}</div>

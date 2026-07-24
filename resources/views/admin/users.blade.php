@@ -10,7 +10,7 @@
 <div class="card">
     <div style="overflow:auto;">
         <table>
-            <thead><tr><th>Name</th><th>Email</th><th>Points</th><th>Role</th><th>Suspended</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Points</th><th>Wallet ₦</th><th>Role</th><th>Suspended</th><th></th></tr></thead>
             <tbody>
             @foreach ($users as $u)
                 <tr>
@@ -19,6 +19,7 @@
                         <td>{{ $u->name }}</td>
                         <td>{{ $u->email }}</td>
                         <td>{{ $u->points }}</td>
+                        <td>{{ (int) ($u->wallet_balance ?? 0) }}</td>
                         <td style="min-width:130px;">
                             <select name="role" required>
                                 <option value="user" @selected($u->role === 'user')>User</option>

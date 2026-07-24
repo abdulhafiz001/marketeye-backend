@@ -44,12 +44,21 @@ class SubmissionManageController extends Controller
         return $this->success(['submissions' => $rows]);
     }
 
-    public function approve(int $id, Request $request, GamificationService $gamification): JsonResponse
+    public function approve(int $id, Request $request, GamificationService $gamification, \App\Services\WalletService $wallet): JsonResponse
     {
         $submission = PriceSubmission::query()->find($id);
         if (! $submission) {
             return $this->failure('Not found.', [], 404);
         }
+
+        if ($submission->status === PriceSubmission::STATUS_APPROVED) {
+            return $this->success(['submission' => ['id' => $submission->id, 'status' => $submission->status]]);
+        }
+
+        $data = $request->validate([
+            'confidence_level' => ['nullable', 'in:high,medium,low'],
+        ]);
+        $confidence = $data['confidence_level'] ?? 'medium';
 
         $submission->update([
             'status' => PriceSubmission::STATUS_APPROVED,
@@ -58,9 +67,40 @@ class SubmissionManageController extends Controller
             'rejection_reason' => null,
         ]);
 
-        $gamification->recomputeSnapshotIfApproved($submission->fresh());
+        $fresh = $submission->fresh();
+        $gamification->recomputeSnapshotIfApproved($fresh);
 
-        return $this->success(['submission' => ['id' => $submission->id, 'status' => $submission->status]]);
+        $snapshot = \App\Models\PriceSnapshot::query()
+            ->where('product_id', $fresh->product_id)
+            ->where('market_id', $fresh->market_id)
+            ->whereDate('snapshot_date', now()->toDateString())
+            ->first();
+
+        if ($snapshot) {
+            if ($confidence === 'high') {
+                $snapshot->update([
+                    'low_confidence' => false,
+                    'submission_count' => max((int) $snapshot->submission_count, 3),
+                ]);
+            } elseif ($confidence === 'low') {
+                $snapshot->update(['low_confidence' => true]);
+            } else {
+                $snapshot->update([
+                    'low_confidence' => false,
+                    'submission_count' => max(1, min((int) $snapshot->submission_count, 2)),
+                ]);
+            }
+        }
+
+        $wallet->awardForVerifiedSubmission($fresh);
+
+        return $this->success([
+            'submission' => [
+                'id' => $submission->id,
+                'status' => $submission->status,
+                'confidence_level' => $confidence,
+            ],
+        ]);
     }
 
     public function reject(int $id, RejectSubmissionRequest $request): JsonResponse
@@ -80,7 +120,7 @@ class SubmissionManageController extends Controller
         return $this->success(['submission' => ['id' => $submission->id, 'status' => $submission->status]]);
     }
 
-    public function bulkApprove(Request $request, GamificationService $gamification): JsonResponse
+    public function bulkApprove(Request $request, GamificationService $gamification, \App\Services\WalletService $wallet): JsonResponse
     {
         $ids = $request->input('ids', []);
         if (! is_array($ids) || empty($ids)) {
@@ -89,7 +129,7 @@ class SubmissionManageController extends Controller
 
         foreach ($ids as $id) {
             $submission = PriceSubmission::query()->find((int) $id);
-            if (! $submission) {
+            if (! $submission || $submission->status === PriceSubmission::STATUS_APPROVED) {
                 continue;
             }
             $submission->update([
@@ -98,7 +138,9 @@ class SubmissionManageController extends Controller
                 'reviewed_by' => $request->user()->id,
                 'rejection_reason' => null,
             ]);
-            $gamification->recomputeSnapshotIfApproved($submission->fresh());
+            $fresh = $submission->fresh();
+            $gamification->recomputeSnapshotIfApproved($fresh);
+            $wallet->awardForVerifiedSubmission($fresh);
         }
 
         return $this->success(null, 'Bulk approve completed.');

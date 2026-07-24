@@ -6,10 +6,14 @@ use App\Http\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\LoginRequest;
 use App\Http\Requests\Api\V1\RegisterRequest;
+use App\Mail\WelcomeMail;
 use App\Models\User;
+use App\Services\GoogleAuthService;
+use App\Services\PasswordResetService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
@@ -24,8 +28,14 @@ class AuthController extends Controller
             'phone' => $request->input('phone'),
             'role' => User::ROLE_USER,
             'points' => 0,
+            'wallet_balance' => 0,
             'verified' => false,
         ]);
+
+        try {
+            Mail::to($user->email)->send(new WelcomeMail($user->name));
+        } catch (\Throwable) {
+        }
 
         $token = $user->createToken('mobile')->plainTextToken;
 
@@ -44,7 +54,7 @@ class AuthController extends Controller
             ->orWhere('phone', $login)
             ->first();
 
-        if (! $user || ! Hash::check($request->string('password')->toString(), $user->password)) {
+        if (! $user || ! $user->password || ! Hash::check($request->string('password')->toString(), $user->password)) {
             return $this->failure('Invalid credentials.', [], 401);
         }
 
@@ -59,6 +69,63 @@ class AuthController extends Controller
             'token' => $token,
             'token_type' => 'Bearer',
         ]);
+    }
+
+    public function google(Request $request, GoogleAuthService $google): JsonResponse
+    {
+        $data = $request->validate([
+            'id_token' => ['required', 'string'],
+        ]);
+
+        $user = $google->authenticateWithIdToken($data['id_token']);
+        $token = $user->createToken('mobile-google')->plainTextToken;
+
+        return $this->success([
+            'user' => $this->userPayload($user),
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ], 'Signed in with Google.');
+    }
+
+    public function forgotPassword(Request $request, PasswordResetService $reset): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $reset->sendOtp($data['email']);
+
+        return $this->success(
+            ['expires_in_minutes' => PasswordResetService::OTP_TTL_MINUTES],
+            'A 6-digit code has been sent to your email. It expires in '.PasswordResetService::OTP_TTL_MINUTES.' minutes.'
+        );
+    }
+
+    public function verifyResetCode(Request $request, PasswordResetService $reset): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'string', 'size:6'],
+        ]);
+
+        $reset->verifyCode($data['email'], $data['code']);
+
+        return $this->success(['valid' => true], 'Code verified.');
+    }
+
+    public function resetPassword(Request $request, PasswordResetService $reset): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'string', 'size:6'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $reset->resetPassword($data['email'], $data['code'], $data['password']);
+
+        return $this->success([
+            'user' => $this->userPayload($user),
+        ], 'Password updated. You can sign in now.');
     }
 
     public function logout(Request $request): JsonResponse
@@ -85,6 +152,7 @@ class AuthController extends Controller
             'avatar' => $user->avatar,
             'role' => $user->role,
             'points' => (int) $user->points,
+            'wallet_balance' => (int) $user->wallet_balance,
             'verified' => (bool) $user->verified,
         ];
     }

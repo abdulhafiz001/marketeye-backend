@@ -28,6 +28,8 @@ class User extends Authenticatable
         'avatar',
         'role',
         'points',
+        'wallet_balance',
+        'google_id',
         'verified',
         'banned_at',
         'submission_streak',
@@ -37,6 +39,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'google_id',
     ];
 
     protected function casts(): array
@@ -47,6 +50,7 @@ class User extends Authenticatable
             'verified' => 'boolean',
             'banned_at' => 'datetime',
             'last_submission_date' => 'date',
+            'wallet_balance' => 'integer',
         ];
     }
 
@@ -58,6 +62,16 @@ class User extends Authenticatable
     public function marketWatches(): HasMany
     {
         return $this->hasMany(UserMarketWatch::class);
+    }
+
+    public function airtimeClaims(): HasMany
+    {
+        return $this->hasMany(AirtimeClaim::class);
+    }
+
+    public function apiKeys(): HasMany
+    {
+        return $this->hasMany(ApiKey::class);
     }
 
     public function isAdminOrModerator(): bool

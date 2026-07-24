@@ -8,13 +8,15 @@ use App\Http\Requests\Api\V1\SubmitPriceRequest;
 use App\Models\PriceSubmission;
 use App\Models\Product;
 use App\Services\GamificationService;
+use App\Services\PendingSubmissionAlertService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 
 class PriceSubmitController extends Controller
 {
     use ApiResponse;
 
-    public function store(SubmitPriceRequest $request, GamificationService $gamification): JsonResponse
+    public function store(SubmitPriceRequest $request, GamificationService $gamification, WalletService $wallet): JsonResponse
     {
         $user = $request->user();
         $productId = (int) $request->input('product_id');
@@ -40,13 +42,18 @@ class PriceSubmitController extends Controller
             'submitted_at' => now(),
             'reviewed_at' => $auto ? now() : null,
             'reviewed_by' => null,
+            'wallet_rewarded' => false,
         ]);
 
         $gamification->awardPointsOnSubmission($user, 5);
         $gamification->recordSubmissionDayAndStreak($user->fresh());
 
         if ($auto) {
-            $gamification->recomputeSnapshotIfApproved($submission->fresh());
+            $fresh = $submission->fresh();
+            $gamification->recomputeSnapshotIfApproved($fresh);
+            $wallet->awardForVerifiedSubmission($fresh);
+        } else {
+            app(PendingSubmissionAlertService::class)->notifyIfNeeded();
         }
 
         $user->refresh();
@@ -56,6 +63,7 @@ class PriceSubmitController extends Controller
                 'id' => $submission->id,
                 'status' => $submission->status,
                 'points_awarded' => 5,
+                'wallet_awarded' => $auto ? 1 : 0,
                 'auto_approved' => $auto,
                 'quantity_value' => (float) $submission->quantity_value,
                 'quantity_unit' => $submission->quantity_unit,
@@ -63,6 +71,7 @@ class PriceSubmitController extends Controller
             ],
             'user' => [
                 'points' => (int) $user->points,
+                'wallet_balance' => (int) $user->wallet_balance,
             ],
         ], 'Price submitted.');
     }

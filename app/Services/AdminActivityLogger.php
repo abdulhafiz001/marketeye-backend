@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\Admin;
 use App\Models\AdminActivityLog;
-use App\Models\User;
 
 class AdminActivityLogger
 {
     public function log(
-        User $admin,
+        Admin $admin,
         string $action,
         ?string $entityType = null,
         ?int $entityId = null,

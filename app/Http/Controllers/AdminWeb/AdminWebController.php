@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\AdminWeb;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin;
 use App\Models\AdminActivityLog;
+use App\Models\ApiKey;
 use App\Models\Category;
 use App\Models\ExternalPriceSeed;
 use App\Models\Market;
@@ -15,6 +17,8 @@ use App\Services\AdminActivityLogger;
 use App\Services\ExternalDataSeedService;
 use App\Services\GamificationService;
 use App\Services\PriceSnapshotService;
+use App\Services\WalletService;
+use App\Models\AirtimeClaim;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,8 +36,8 @@ class AdminWebController extends Controller
 
     public function showSetup()
     {
-        if (User::query()->where('role', User::ROLE_ADMIN)->exists()) {
-            return redirect('/admin/login');
+        if (Admin::query()->exists()) {
+            return redirect()->route('admin.login');
         }
 
         return view('admin.setup');
@@ -41,26 +45,25 @@ class AdminWebController extends Controller
 
     public function setup(Request $request)
     {
-        if (User::query()->where('role', User::ROLE_ADMIN)->exists()) {
-            return redirect('/admin/login');
+        if (Admin::query()->exists()) {
+            return redirect()->route('admin.login');
         }
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:255', 'unique:admins,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $user = User::query()->create([
+        $admin = Admin::query()->create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => $data['password'],
-            'role' => User::ROLE_ADMIN,
-            'points' => 0,
-            'verified' => true,
+            'role' => Admin::ROLE_ADMIN,
         ]);
 
-        Auth::guard('web')->login($user);
+        Auth::guard('admin')->login($admin);
+        $admin->forceFill(['last_login_at' => now()])->save();
 
         return redirect('/admin');
     }
@@ -72,27 +75,28 @@ class AdminWebController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        $user = User::query()->where('email', $data['email'])->first();
-        if (! $user || ! Hash::check($data['password'], $user->password)) {
+        $admin = Admin::query()->where('email', $data['email'])->first();
+        if (! $admin || ! Hash::check($data['password'], $admin->password)) {
             return back()->withErrors(['email' => 'Invalid credentials.'])->withInput();
         }
 
-        if (! $user->isAdminOrModerator()) {
+        if (! $admin->isAdminOrModerator()) {
             return back()->withErrors(['email' => 'Not authorized.'])->withInput();
         }
 
-        Auth::guard('web')->login($user);
+        Auth::guard('admin')->login($admin);
+        $admin->forceFill(['last_login_at' => now()])->save();
 
         return redirect('/admin');
     }
 
     public function logout(Request $request)
     {
-        Auth::guard('web')->logout();
+        Auth::guard('admin')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/admin/login');
+        return redirect()->route('admin.login');
     }
 
     public function dashboard(): View
@@ -177,6 +181,68 @@ class AdminWebController extends Controller
             'products' => Product::query()->with('category')->orderBy('name')->limit(500)->get(),
             'categories' => Category::query()->orderBy('name')->get(),
         ]);
+    }
+
+    public function categories(): View
+    {
+        return view('admin.categories', [
+            'categories' => Category::query()
+                ->withCount('products')
+                ->orderBy('name')
+                ->get(),
+        ]);
+    }
+
+    public function storeCategory(Request $request, AdminActivityLogger $logger)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'icon' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $category = Category::query()->create([
+            'name' => $data['name'],
+            'slug' => Str::slug($data['name']),
+            'icon' => $data['icon'] ?? null,
+        ]);
+
+        $logger->log(Auth::guard('admin')->user(), 'Created category', Category::class, $category->id);
+
+        return back()->with('status', 'Category created.');
+    }
+
+    public function updateCategory(int $id, Request $request, AdminActivityLogger $logger)
+    {
+        $category = Category::query()->findOrFail($id);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'icon' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $category->update([
+            'name' => $data['name'],
+            'slug' => Str::slug($data['name']),
+            'icon' => $data['icon'] ?? $category->icon,
+        ]);
+
+        $logger->log(Auth::guard('admin')->user(), 'Updated category', Category::class, $category->id);
+
+        return back()->with('status', 'Category updated.');
+    }
+
+    public function destroyCategory(int $id, AdminActivityLogger $logger)
+    {
+        $category = Category::query()->findOrFail($id);
+
+        if ($category->products()->exists()) {
+            return back()->withErrors(['category' => 'Cannot delete a category that still has products. Move or delete those products first.']);
+        }
+
+        $categoryId = $category->id;
+        $category->delete();
+        $logger->log(Auth::guard('admin')->user(), 'Deleted category', Category::class, $categoryId);
+
+        return back()->with('status', 'Category deleted.');
     }
 
     public function markets(): View
@@ -300,30 +366,19 @@ class AdminWebController extends Controller
 
     public function pullExternalData(Request $request, ExternalDataSeedService $service)
     {
-        $data = $request->validate([
-            'source' => ['required', 'in:wfp,worldbank,all'],
-        ]);
-
-        $results = [];
         try {
-            if ($data['source'] === 'all' || $data['source'] === 'worldbank') {
-                $results[] = $service->runWorldBankSeed($request->user());
-            }
-            if ($data['source'] === 'all' || $data['source'] === 'wfp') {
-                $results[] = $service->runWfpSeed($request->user());
-            }
+            $result = $service->runStaleSnapshotReview(Auth::guard('admin')->user());
         } catch (\Throwable $e) {
             return back()->withErrors(['external' => $e->getMessage()]);
         }
 
-        $failed = collect($results)->firstWhere('status', 'failed');
-        if ($failed) {
-            return back()->withErrors(['external' => $failed['source'].': '.$failed['message']]);
+        if (($result['status'] ?? '') === 'failed') {
+            return back()->withErrors(['external' => ($result['source'] ?? 'seed').': '.($result['message'] ?? 'Failed')]);
         }
 
-        $count = collect($results)->sum('records_imported');
+        $count = (int) ($result['records_imported'] ?? 0);
 
-        return back()->with('status', "Pulled external data. {$count} item(s) are ready for review.");
+        return back()->with('status', "Created review items for stale prices. {$count} item(s) are ready for review.");
     }
 
     public function storePrice(Request $request, PriceSnapshotService $snapshots, AdminActivityLogger $logger)
@@ -361,7 +416,7 @@ class AdminWebController extends Controller
                 $data['effective_date']
             );
 
-            $logger->log($request->user(), 'Updated market price', PriceSnapshot::class, $snapshot->id, [
+            $logger->log(Auth::guard('admin')->user(), 'Updated market price', PriceSnapshot::class, $snapshot->id, [
                 'product_id' => (int) $data['product_id'],
                 'market_id' => $marketId,
                 'price' => (float) $data['price'],
@@ -399,10 +454,10 @@ class AdminWebController extends Controller
         $seed->update([
             'status' => ExternalPriceSeed::STATUS_APPROVED,
             'approved_at' => now(),
-            'approved_by' => $request->user()->id,
+            'approved_by' => null,
         ]);
 
-        $logger->log($request->user(), 'Approved external price', ExternalPriceSeed::class, $seed->id, [
+        $logger->log(Auth::guard('admin')->user(), 'Approved external price', ExternalPriceSeed::class, $seed->id, [
             'snapshot_id' => $snapshot->id,
         ]);
 
@@ -427,7 +482,7 @@ class AdminWebController extends Controller
         $data['is_active'] = $request->boolean('is_active', true);
 
         $market = Market::query()->create($data);
-        $logger->log($request->user(), 'Created market', Market::class, $market->id);
+        $logger->log(Auth::guard('admin')->user(), 'Created market', Market::class, $market->id);
 
         return back()->with('status', 'Market saved.');
     }
@@ -446,7 +501,7 @@ class AdminWebController extends Controller
             'area' => $data['area'] ?? null,
             'is_active' => $request->boolean('is_active'),
         ]);
-        $logger->log($request->user(), 'Updated market', Market::class, $market->id);
+        $logger->log(Auth::guard('admin')->user(), 'Updated market', Market::class, $market->id);
 
         return back()->with('status', 'Market updated.');
     }
@@ -465,7 +520,7 @@ class AdminWebController extends Controller
         $data['slug'] = Str::slug($data['name']).'-tmp';
         $product = Product::query()->create($data);
         $product->update(['slug' => Str::slug($data['name']).'-'.$product->id]);
-        $logger->log($request->user(), 'Created product', Product::class, $product->id);
+        $logger->log(Auth::guard('admin')->user(), 'Created product', Product::class, $product->id);
 
         return back()->with('status', 'Product saved.');
     }
@@ -487,7 +542,7 @@ class AdminWebController extends Controller
             'unit' => $data['unit'],
             'is_active' => $request->boolean('is_active'),
         ]);
-        $logger->log($request->user(), 'Updated product', Product::class, $product->id);
+        $logger->log(Auth::guard('admin')->user(), 'Updated product', Product::class, $product->id);
 
         return back()->with('status', 'Product updated.');
     }
@@ -504,24 +559,70 @@ class AdminWebController extends Controller
             'role' => $data['role'],
             'banned_at' => $request->boolean('banned') ? ($user->banned_at ?? now()) : null,
         ]);
-        $logger->log($request->user(), 'Updated user', User::class, $user->id);
+        $logger->log(Auth::guard('admin')->user(), 'Updated user', User::class, $user->id);
 
         return back()->with('status', 'User updated.');
     }
 
-    public function approveSubmission(int $id, Request $request, GamificationService $gamification, AdminActivityLogger $logger)
+    public function approveSubmission(int $id, Request $request, GamificationService $gamification, WalletService $wallet, AdminActivityLogger $logger)
     {
-        $submission = PriceSubmission::query()->findOrFail($id);
-        $submission->update([
-            'status' => PriceSubmission::STATUS_APPROVED,
-            'reviewed_at' => now(),
-            'reviewed_by' => $request->user()->id,
-            'rejection_reason' => null,
+        $data = $request->validate([
+            'confidence_level' => ['nullable', 'in:high,medium,low'],
         ]);
-        $gamification->recomputeSnapshotIfApproved($submission->fresh());
-        $logger->log($request->user(), 'Approved submission', PriceSubmission::class, $submission->id);
+        $confidence = $data['confidence_level'] ?? 'medium';
+
+        $submission = PriceSubmission::query()->findOrFail($id);
+        if ($submission->status !== PriceSubmission::STATUS_APPROVED) {
+            $submission->update([
+                'status' => PriceSubmission::STATUS_APPROVED,
+                'reviewed_at' => now(),
+                'reviewed_by' => null,
+                'rejection_reason' => null,
+            ]);
+            $fresh = $submission->fresh();
+            $gamification->recomputeSnapshotIfApproved($fresh);
+            $this->applyAdminConfidence(
+                (int) $fresh->product_id,
+                (int) $fresh->market_id,
+                $confidence
+            );
+            $wallet->awardForVerifiedSubmission($fresh);
+            $logger->log(Auth::guard('admin')->user(), 'Approved submission', PriceSubmission::class, $submission->id, [
+                'confidence_level' => $confidence,
+            ]);
+        }
 
         return back()->with('status', 'Submission approved.');
+    }
+
+    private function applyAdminConfidence(int $productId, int $marketId, string $level): void
+    {
+        $snapshot = PriceSnapshot::query()
+            ->where('product_id', $productId)
+            ->where('market_id', $marketId)
+            ->whereDate('snapshot_date', now()->toDateString())
+            ->first();
+
+        if (! $snapshot) {
+            return;
+        }
+
+        if ($level === 'high') {
+            $snapshot->update([
+                'low_confidence' => false,
+                'submission_count' => max((int) $snapshot->submission_count, 3),
+            ]);
+        } elseif ($level === 'low') {
+            $snapshot->update([
+                'low_confidence' => true,
+            ]);
+        } else {
+            // medium / "confident"
+            $snapshot->update([
+                'low_confidence' => false,
+                'submission_count' => max(1, min((int) $snapshot->submission_count, 2)),
+            ]);
+        }
     }
 
     public function rejectSubmission(int $id, Request $request, AdminActivityLogger $logger)
@@ -534,11 +635,88 @@ class AdminWebController extends Controller
         $submission->update([
             'status' => PriceSubmission::STATUS_REJECTED,
             'reviewed_at' => now(),
-            'reviewed_by' => $request->user()->id,
+            'reviewed_by' => null,
             'rejection_reason' => $data['reason'] ?? 'Rejected by admin.',
         ]);
-        $logger->log($request->user(), 'Rejected submission', PriceSubmission::class, $submission->id);
+        $logger->log(Auth::guard('admin')->user(), 'Rejected submission', PriceSubmission::class, $submission->id);
 
         return back()->with('status', 'Submission rejected.');
+    }
+
+    public function claims(): View
+    {
+        return view('admin.claims', [
+            'claims' => AirtimeClaim::query()
+                ->with(['user', 'payer'])
+                ->orderByDesc('claimed_at')
+                ->limit(200)
+                ->get(),
+            'pendingCount' => AirtimeClaim::query()->where('status', AirtimeClaim::STATUS_PENDING)->count(),
+        ]);
+    }
+
+    public function markClaimPaid(int $id, Request $request, WalletService $wallet, AdminActivityLogger $logger)
+    {
+        $claim = AirtimeClaim::query()->findOrFail($id);
+        $data = $request->validate([
+            'admin_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $wallet->markPaid($claim, Auth::guard('admin')->user(), $data['admin_note'] ?? 'Airtime sent.');
+        $logger->log(Auth::guard('admin')->user(), 'Marked airtime claim paid', AirtimeClaim::class, $claim->id);
+
+        return back()->with('status', 'Claim marked as paid.');
+    }
+
+    public function rejectClaim(int $id, Request $request, WalletService $wallet, AdminActivityLogger $logger)
+    {
+        $claim = AirtimeClaim::query()->findOrFail($id);
+        $data = $request->validate([
+            'admin_note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $wallet->reject($claim, Auth::guard('admin')->user(), $data['admin_note'] ?? 'Rejected by admin.');
+        $logger->log(Auth::guard('admin')->user(), 'Rejected airtime claim', AirtimeClaim::class, $claim->id);
+
+        return back()->with('status', 'Claim rejected and wallet refunded.');
+    }
+
+    public function apiKeys(): View
+    {
+        return view('admin.api-keys', [
+            'keys' => ApiKey::query()
+                ->with('developer')
+                ->orderByDesc('created_at')
+                ->limit(200)
+                ->get(),
+        ]);
+    }
+
+    public function updateApiKey(int $id, Request $request, AdminActivityLogger $logger)
+    {
+        $key = ApiKey::query()->findOrFail($id);
+        $data = $request->validate([
+            'daily_limit' => ['required', 'integer', 'min:10', 'max:50000'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $key->update([
+            'daily_limit' => (int) $data['daily_limit'],
+            'monthly_limit' => max((int) $key->monthly_limit, (int) $data['daily_limit'] * 30),
+            'is_active' => $request->boolean('is_active', $key->is_active),
+        ]);
+
+        $logger->log(Auth::guard('admin')->user(), 'Updated API key limits', ApiKey::class, $key->id, $data);
+
+        return back()->with('status', 'API key updated.');
+    }
+
+    public function revokeApiKey(int $id, Request $request, AdminActivityLogger $logger)
+    {
+        $key = ApiKey::query()->findOrFail($id);
+        $key->update(['is_active' => false]);
+        $logger->log(Auth::guard('admin')->user(), 'Revoked API key', ApiKey::class, $key->id);
+
+        return back()->with('status', 'API key revoked.');
     }
 }

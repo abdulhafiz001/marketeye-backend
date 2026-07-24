@@ -58,7 +58,7 @@ class PriceSnapshotService
             $price,
             $price,
             $price,
-            1,
+            3,
             false,
             PriceSnapshot::SOURCE_MANUAL,
             $effectiveDate

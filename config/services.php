@@ -35,14 +35,10 @@ return [
         ],
     ],
 
-    'worldbank_rtfp_catalog_url' => env(
-        'WORLDBANK_RTFP_NIGERIA_URL',
-        'https://microdata.worldbank.org/index.php/catalog/4503'
-    ),
-
-    'wfp_hdx_catalog_url' => env(
-        'WFP_NIGERIA_HDX_URL',
-        'https://data.humdata.org/dataset/wfp-food-prices-for-nigeria'
-    ),
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI'),
+    ],
 
 ];

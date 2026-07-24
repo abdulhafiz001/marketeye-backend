@@ -2,6 +2,7 @@
 
 use App\Services\ExternalDataSeedService;
 use App\Services\GamificationService;
+use App\Services\PendingSubmissionAlertService;
 use App\Services\PriceSnapshotService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -22,3 +23,7 @@ Schedule::call(function () {
 Schedule::call(function () {
     app(ExternalDataSeedService::class)->weeklyFallbackForStaleSnapshots();
 })->weeklyOn(1, '07:00');
+
+Schedule::call(function () {
+    app(PendingSubmissionAlertService::class)->notifyIfNeeded();
+})->hourly();

@@ -6,23 +6,16 @@
 
 @section('content')
 <p class="page-hint">
-    Pull weekly public food price data into a review list first. Nothing appears in the app until an admin approves it.
+    Generate review items for markets/products with stale or missing crowd prices. Nothing appears in the app until an admin approves it.
+    Live prices come from community submissions and manual admin entry — not third-party catalog URLs.
 </p>
 
 <div class="card" style="margin-bottom: 16px;">
     <form method="post" action="{{ route('admin.external.pull') }}" class="form-grid">
         @csrf
         <div>
-            <label>Source</label>
-            <select name="source">
-                <option value="wfp">WFP food price data</option>
-                <option value="worldbank">World Bank Nigeria RTFP catalog</option>
-                <option value="all">All sources</option>
-            </select>
-        </div>
-        <div>
             <label>&nbsp;</label>
-            <button class="btn btn-primary" type="submit">Pull latest data</button>
+            <button class="btn btn-primary" type="submit">Generate stale-price review items</button>
         </div>
     </form>
 </div>
@@ -70,7 +63,7 @@
                 </tr>
             @endforeach
             @if ($seeds->isEmpty())
-                <tr><td colspan="8" style="color:var(--muted);">No external data has been pulled yet.</td></tr>
+                <tr><td colspan="8" style="color:var(--muted);">No review items yet. Generate stale-price review items above.</td></tr>
             @endif
             </tbody>
         </table>

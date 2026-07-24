@@ -192,13 +192,16 @@
     <div class="sidebar-brand">Market Eye</div>
     <nav class="sidebar-nav">
         <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
+        <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">Manage categories</a>
         <a href="{{ route('admin.products.index') }}" class="{{ request()->routeIs('admin.products.index') ? 'active' : '' }}">Manage products</a>
         <a href="{{ route('admin.markets.index') }}" class="{{ request()->routeIs('admin.markets.index') ? 'active' : '' }}">Manage markets</a>
         <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.index') ? 'active' : '' }}">Manage users</a>
         <a href="{{ route('admin.submissions.index') }}" class="{{ request()->routeIs('admin.submissions.index') ? 'active' : '' }}">Manage submissions</a>
+        <a href="{{ route('admin.claims.index') }}" class="{{ request()->routeIs('admin.claims.*') ? 'active' : '' }}">Airtime claims</a>
         <a href="{{ route('admin.prices.index') }}" class="{{ request()->routeIs('admin.prices.*') ? 'active' : '' }}">Manage prices</a>
         <a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">Reports</a>
         <a href="{{ route('admin.external.index') }}" class="{{ request()->routeIs('admin.external.*') ? 'active' : '' }}">External price data</a>
+        <a href="{{ route('admin.api-keys.index') }}" class="{{ request()->routeIs('admin.api-keys.*') ? 'active' : '' }}">API keys</a>
         <a href="{{ route('admin.activity') }}" class="{{ request()->routeIs('admin.activity') ? 'active' : '' }}">Recent admin activity</a>
     </nav>
     <div class="sidebar-footer">
@@ -212,7 +215,7 @@
     <div class="main-inner">
         <div class="topbar-page">
             <h1>@yield('page_title')</h1>
-            <div class="muted">Signed in as {{ auth()->user()->email }}</div>
+            <div class="muted">Signed in as {{ auth('admin')->user()?->email }}</div>
         </div>
 
         @if (session('status'))

@@ -24,6 +24,7 @@ class PriceSubmission extends Model
         'notes',
         'rejection_reason',
         'status',
+        'wallet_rewarded',
         'submitted_at',
         'reviewed_at',
         'reviewed_by',
@@ -35,6 +36,7 @@ class PriceSubmission extends Model
             'price' => 'decimal:2',
             'quantity_value' => 'decimal:3',
             'price_per_unit' => 'decimal:2',
+            'wallet_rewarded' => 'boolean',
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
         ];

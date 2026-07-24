@@ -6,8 +6,6 @@ use App\Models\ExternalPriceSeed;
 use App\Models\Market;
 use App\Models\Product;
 use App\Models\PriceSnapshot;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class ExternalDataSeedService
 {
@@ -17,75 +15,30 @@ class ExternalDataSeedService
     ) {}
 
     /**
-     * Attempts to fetch public pages and create review rows when no recent crowd snapshot exists.
-     * Real RTFP/WFP CSV endpoints vary; this records fetch status and creates conservative review items when needed.
+     * Create pending review rows for product+market pairs with stale or missing crowd snapshots.
      */
-    public function runWorldBankSeed(?\App\Models\User $actor = null): array
+    public function runStaleSnapshotReview(?\App\Models\Admin $actor = null): array
     {
-        $url = config('services.worldbank_rtfp_catalog_url');
-        $imported = 0;
-        $status = 'partial';
-        $message = 'Catalog page reachable; structured CSV import requires dataset file URL.';
-
-        try {
-            $response = Http::timeout(25)->get($url);
-            if (! $response->successful()) {
-                $status = 'failed';
-                $message = 'HTTP '.$response->status();
-            }
-        } catch (\Throwable $e) {
-            Log::warning('World Bank seed fetch failed', ['e' => $e->getMessage()]);
-            $status = 'failed';
-            $message = $e->getMessage();
-        }
+        $imported = $this->createReviewSeedsForStaleSnapshots('stale_review');
+        $status = $imported > 0 ? 'success' : 'partial';
+        $message = $imported > 0
+            ? 'Created review items where snapshots were stale and crowd data was missing.'
+            : 'No stale product/market pairs needed review items.';
 
         if ($actor) {
-            $this->logger->log($actor, 'seed_external_worldbank', 'external_seed', null, [
+            $this->logger->log($actor, 'seed_external_stale_review', 'external_seed', null, [
                 'status' => $status,
                 'records' => $imported,
                 'message' => $message,
             ]);
         }
 
-        return ['source' => 'worldbank', 'status' => $status, 'records_imported' => $imported, 'message' => $message];
-    }
-
-    public function runWfpSeed(?\App\Models\User $actor = null): array
-    {
-        $url = config('services.wfp_hdx_catalog_url');
-        $imported = 0;
-        $status = 'partial';
-        $message = 'HDX dataset page reachable; automated CSV parse not configured for this environment.';
-
-        try {
-            $response = Http::timeout(25)->get($url);
-            if (! $response->successful()) {
-                $status = 'failed';
-                $message = 'HTTP '.$response->status();
-            }
-        } catch (\Throwable $e) {
-            Log::warning('WFP seed fetch failed', ['e' => $e->getMessage()]);
-            $status = 'failed';
-            $message = $e->getMessage();
-        }
-
-        if ($status !== 'failed' && Product::query()->exists() && Market::query()->exists()) {
-            $imported = $this->createReviewSeedsForStaleSnapshots('wfp');
-            if ($imported > 0) {
-                $status = 'success';
-                $message = 'Created external price review items where snapshots were stale and crowd data was missing.';
-            }
-        }
-
-        if ($actor) {
-            $this->logger->log($actor, 'seed_external_wfp', 'external_seed', null, [
-                'status' => $status,
-                'records' => $imported,
-                'message' => $message,
-            ]);
-        }
-
-        return ['source' => 'wfp', 'status' => $status, 'records_imported' => $imported, 'message' => $message];
+        return [
+            'source' => 'stale_review',
+            'status' => $status,
+            'records_imported' => $imported,
+            'message' => $message,
+        ];
     }
 
     /**
@@ -136,7 +89,7 @@ class ExternalDataSeedService
                 ExternalPriceSeed::query()->create([
                     'product_id' => $product->id,
                     'market_id' => $marketId,
-                    'source' => str_contains($sourceTag, 'wfp') ? 'wfp' : 'manual',
+                    'source' => 'manual',
                     'raw_price' => $normalized,
                     'normalized_price' => $normalized,
                     'effective_date' => now()->toDateString(),

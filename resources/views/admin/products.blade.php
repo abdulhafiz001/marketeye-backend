@@ -5,21 +5,30 @@
 @section('page_title', 'Manage products')
 
 @section('content')
-<p class="page-hint">Add new items or update names, categories, units, and visibility.</p>
+<p class="page-hint">
+    Add new items or update names, categories, units, and visibility.
+    Need a category first? Go to <a href="{{ route('admin.categories.index') }}" style="color:#86EFAC;">Manage categories</a>.
+</p>
+
+@if ($categories->isEmpty())
+    <div class="err">No categories yet. Create one under Manage categories before adding products.</div>
+@endif
 
 <div class="card">
     <form method="post" action="{{ route('admin.products.store') }}" class="form-grid">
         @csrf
         <div>
             <label>Name</label>
-            <input name="name" placeholder="Rice" required>
+            <input name="name" placeholder="Rice" required @disabled($categories->isEmpty())>
         </div>
         <div>
             <label>Category</label>
-            <select name="category_id" required>
-                @foreach ($categories as $category)
+            <select name="category_id" required @disabled($categories->isEmpty())>
+                @forelse ($categories as $category)
                     <option value="{{ $category->id }}">{{ $category->name }}</option>
-                @endforeach
+                @empty
+                    <option value="">No categories</option>
+                @endforelse
             </select>
         </div>
         <div>
