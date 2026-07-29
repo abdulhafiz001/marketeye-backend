@@ -54,7 +54,7 @@ php artisan view:cache --no-interaction
 #    safe to run automatically in production. Run manually if you need catalog data:
 #      php artisan db:seed --class=Database\\Seeders\\MarketEyeSeeder --force
 # ---------------------------------------------------------------------------
-echo "[entrypoint] Skipping db:seed (MarketEyeSeeder not auto-run — see comment above)"
+echo "[entrypoint] Skipping db:seed — create the first admin at /setup (disabled once an admin exists)"
 
 # Optional Firebase credentials hint
 if [ ! -f storage/app/firebase/service-account.json ] && [ -z "${FIREBASE_CREDENTIALS:-}" ]; then

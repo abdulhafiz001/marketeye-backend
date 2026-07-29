@@ -30,15 +30,21 @@ use Illuminate\View\View;
 
 class AdminWebController extends Controller
 {
-    public function showLogin(): View
+    public function showLogin()
     {
+        // Fresh deploy: send people to create the first admin instead of a dead login form.
+        if (! Admin::query()->exists()) {
+            return redirect()->route('setup');
+        }
+
         return view('admin.login');
     }
 
     public function showSetup()
     {
         if (Admin::query()->exists()) {
-            return redirect()->route('admin.login');
+            return redirect()->route('admin.login')
+                ->with('status', 'An admin already exists. Sign in instead.');
         }
 
         return view('admin.setup');
@@ -47,7 +53,8 @@ class AdminWebController extends Controller
     public function setup(Request $request)
     {
         if (Admin::query()->exists()) {
-            return redirect()->route('admin.login');
+            return redirect()->route('admin.login')
+                ->with('status', 'An admin already exists. Sign in instead.');
         }
 
         $data = $request->validate([
@@ -61,12 +68,15 @@ class AdminWebController extends Controller
             'email' => $data['email'],
             'password' => $data['password'],
             'role' => Admin::ROLE_ADMIN,
+            'is_primary' => true,
+            'restricted_at' => null,
         ]);
 
         Auth::guard('admin')->login($admin);
         $admin->forceFill(['last_login_at' => now()])->save();
 
-        return redirect('/admin');
+        return redirect()->route('admin.dashboard')
+            ->with('status', 'Admin account created. Welcome to Market Eye.');
     }
 
     public function login(Request $request)
@@ -83,6 +93,10 @@ class AdminWebController extends Controller
 
         if (! $admin->isAdminOrModerator()) {
             return back()->withErrors(['email' => 'Not authorized.'])->withInput();
+        }
+
+        if ($admin->isRestricted()) {
+            return back()->withErrors(['email' => 'This admin account has been restricted. Contact the main admin.'])->withInput();
         }
 
         Auth::guard('admin')->login($admin);
@@ -724,5 +738,133 @@ class AdminWebController extends Controller
         $logger->log(Auth::guard('admin')->user(), 'Revoked API key', ApiKey::class, $key->id);
 
         return back()->with('status', 'API key revoked.');
+    }
+
+    public function settings(Request $request): View
+    {
+        $actor = Auth::guard('admin')->user();
+        $tab = $request->query('tab', 'account');
+        if (! in_array($tab, ['account', 'admins'], true)) {
+            $tab = 'account';
+        }
+
+        return view('admin.settings', [
+            'tab' => $tab,
+            'actor' => $actor,
+            'admins' => Admin::query()->orderByDesc('is_primary')->orderBy('id')->get(),
+        ]);
+    }
+
+    public function updateAccount(Request $request, AdminActivityLogger $logger)
+    {
+        /** @var Admin $actor */
+        $actor = Auth::guard('admin')->user();
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:admins,email,'.$actor->id],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $actor->name = $data['name'];
+        $actor->email = $data['email'];
+        if (! empty($data['password'])) {
+            $actor->password = $data['password'];
+        }
+        $actor->save();
+
+        $logger->log($actor, 'Updated own account settings', Admin::class, $actor->id);
+
+        return redirect()->route('admin.settings', ['tab' => 'account'])
+            ->with('status', 'Your account was updated.');
+    }
+
+    public function storeAdmin(Request $request, AdminActivityLogger $logger)
+    {
+        $actor = Auth::guard('admin')->user();
+        if (! $actor?->canManageAdmins()) {
+            abort(403, 'Only unrestricted admins can manage admins.');
+        }
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:admins,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'role' => ['required', 'in:admin,moderator'],
+        ]);
+
+        $admin = Admin::query()->create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => $data['password'],
+            'role' => $data['role'],
+            'is_primary' => false,
+            'restricted_at' => null,
+        ]);
+
+        $logger->log($actor, 'Created admin', Admin::class, $admin->id, [
+            'email' => $admin->email,
+            'role' => $admin->role,
+        ]);
+
+        return redirect()->route('admin.settings', ['tab' => 'admins'])
+            ->with('status', 'Admin created: '.$admin->email);
+    }
+
+    public function updateAdmin(int $id, Request $request, AdminActivityLogger $logger)
+    {
+        $actor = Auth::guard('admin')->user();
+        if (! $actor?->canManageAdmins()) {
+            abort(403, 'Only unrestricted admins can manage admins.');
+        }
+
+        $admin = Admin::query()->findOrFail($id);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:admins,email,'.$admin->id],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'role' => ['required', 'in:admin,moderator'],
+            'restricted' => ['nullable', 'boolean'],
+        ]);
+
+        if ($admin->isPrimary()) {
+            // Main admin: name/email/password only — never demote or restrict.
+            $admin->name = $data['name'];
+            $admin->email = $data['email'];
+            if (! empty($data['password'])) {
+                $admin->password = $data['password'];
+            }
+            $admin->role = Admin::ROLE_ADMIN;
+            $admin->is_primary = true;
+            $admin->restricted_at = null;
+            $admin->save();
+
+            $logger->log($actor, 'Updated primary admin profile', Admin::class, $admin->id);
+
+            return redirect()->route('admin.settings', ['tab' => 'admins'])
+                ->with('status', 'Main admin updated. Role/restriction cannot be changed.');
+        }
+
+        if ($admin->id === $actor->id && $request->boolean('restricted')) {
+            return back()->withErrors(['restricted' => 'You cannot restrict your own account.']);
+        }
+
+        $admin->name = $data['name'];
+        $admin->email = $data['email'];
+        $admin->role = $data['role'];
+        if (! empty($data['password'])) {
+            $admin->password = $data['password'];
+        }
+        $admin->restricted_at = $request->boolean('restricted') ? ($admin->restricted_at ?? now()) : null;
+        $admin->save();
+
+        $logger->log($actor, 'Updated admin', Admin::class, $admin->id, [
+            'role' => $admin->role,
+            'restricted' => $admin->isRestricted(),
+        ]);
+
+        return redirect()->route('admin.settings', ['tab' => 'admins'])
+            ->with('status', 'Admin updated: '.$admin->email);
     }
 }

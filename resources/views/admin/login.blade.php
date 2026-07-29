@@ -24,6 +24,10 @@
         <h1 style="margin-top:12px;">Market Eye Admin</h1>
         <p>Secure access for moderators and administrators.</p>
 
+        @if (session('status'))
+            <div class="err" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35);color:#86EFAC;">{{ session('status') }}</div>
+        @endif
+
         @if ($errors->any())
             <div class="err">{{ $errors->first() }}</div>
         @endif

@@ -16,6 +16,15 @@ class EnsureWebAdmin
             return redirect()->route('admin.login');
         }
 
+        if ($admin->isRestricted()) {
+            Auth::guard('admin')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('admin.login')
+                ->withErrors(['email' => 'This admin account has been restricted. Contact the main admin.']);
+        }
+
         return $next($request);
     }
 }

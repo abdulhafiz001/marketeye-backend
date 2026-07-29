@@ -204,6 +204,7 @@
         <a href="{{ route('admin.external.index') }}" class="{{ request()->routeIs('admin.external.*') ? 'active' : '' }}">External price data</a>
         <a href="{{ route('admin.api-keys.index') }}" class="{{ request()->routeIs('admin.api-keys.*') ? 'active' : '' }}">API keys</a>
         <a href="{{ route('admin.activity') }}" class="{{ request()->routeIs('admin.activity') ? 'active' : '' }}">Recent admin activity</a>
+        <a href="{{ route('admin.settings') }}" class="{{ request()->routeIs('admin.settings*') ? 'active' : '' }}">Settings</a>
     </nav>
     <div class="sidebar-footer">
         <form method="post" action="{{ route('admin.logout') }}">

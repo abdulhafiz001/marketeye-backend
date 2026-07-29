@@ -33,13 +33,22 @@ Route::prefix('developer')->group(function (): void {
     });
 });
 
+// First-time admin bootstrap (only works when admins table is empty)
+Route::get('/setup', [AdminWebController::class, 'showSetup'])->name('setup');
+Route::post('/setup', [AdminWebController::class, 'setup'])
+    ->middleware('throttle:5,60')
+    ->name('setup.post');
+
 // Admin panel (secret URL — not linked from landing)
 Route::get('/admin/login', [AdminWebController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [AdminWebController::class, 'login'])
     ->middleware('throttle:10,1')
     ->name('admin.login.post');
+// Aliases kept for older bookmarks
 Route::get('/admin/setup', [AdminWebController::class, 'showSetup'])->name('admin.setup');
-Route::post('/admin/setup', [AdminWebController::class, 'setup'])->name('admin.setup.post');
+Route::post('/admin/setup', [AdminWebController::class, 'setup'])
+    ->middleware('throttle:5,60')
+    ->name('admin.setup.post');
 
 Route::middleware(['web', 'auth:admin', 'web_admin'])->group(function (): void {
     Route::get('/admin', [AdminWebController::class, 'dashboard'])->name('admin.dashboard');
@@ -55,6 +64,10 @@ Route::middleware(['web', 'auth:admin', 'web_admin'])->group(function (): void {
     Route::get('/admin/activity', [AdminWebController::class, 'activity'])->name('admin.activity');
     Route::get('/admin/external-data', [AdminWebController::class, 'externalData'])->name('admin.external.index');
     Route::get('/admin/api-keys', [AdminWebController::class, 'apiKeys'])->name('admin.api-keys.index');
+    Route::get('/admin/settings', [AdminWebController::class, 'settings'])->name('admin.settings');
+    Route::post('/admin/settings/account', [AdminWebController::class, 'updateAccount'])->name('admin.settings.account');
+    Route::post('/admin/settings/admins', [AdminWebController::class, 'storeAdmin'])->name('admin.settings.admins.store');
+    Route::post('/admin/settings/admins/{id}', [AdminWebController::class, 'updateAdmin'])->name('admin.settings.admins.update');
     Route::post('/admin/logout', [AdminWebController::class, 'logout'])->name('admin.logout');
     Route::post('/admin/markets', [AdminWebController::class, 'storeMarket'])->name('admin.markets.store');
     Route::post('/admin/markets/{id}', [AdminWebController::class, 'updateMarket'])->name('admin.markets.update');

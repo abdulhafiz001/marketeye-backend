@@ -17,10 +17,17 @@ curl -i http://localhost:8080/up
 4. Mount Firebase JSON to `storage/app/firebase/service-account.json` (or set `FIREBASE_CREDENTIALS`)
 5. Generate a real `APP_KEY` (`php artisan key:generate --show`) — do not reuse the compose placeholder
 
-## Seeders (manual)
+## First admin
 
-`MarketEyeSeeder` is **not** run on boot (creates `admin@marketeye.ng` / `admin123`).
+Do **not** rely on a password seeder. After deploy, open:
+
+`https://your-domain.com/setup`
+
+Create the first admin (page disables itself once an admin exists). Then use `/admin/login`.
+
+Optional catalog seed only (markets/products — not the admin account):
 
 ```bash
 php artisan db:seed --class=Database\\Seeders\\MarketEyeSeeder --force
 ```
+
