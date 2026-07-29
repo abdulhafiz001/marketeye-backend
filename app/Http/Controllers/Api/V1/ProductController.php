@@ -6,7 +6,9 @@ use App\Http\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\PriceSnapshot;
 use App\Models\Product;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
@@ -40,7 +42,7 @@ class ProductController extends Controller
         return $this->success(['products' => $products]);
     }
 
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         $product = Product::query()
             ->where('is_active', true)
@@ -50,6 +52,8 @@ class ProductController extends Controller
         if (! $product) {
             return $this->failure('Product not found.', [], 404);
         }
+
+        $filterMarketId = $request->integer('market_id') ?: null;
 
         $latestByMarket = PriceSnapshot::query()
             ->select('market_id', DB::raw('MAX(snapshot_date) as latest_date'))
@@ -75,22 +79,77 @@ class ProductController extends Controller
                 'min_price' => (float) $snapshot->min_price,
                 'max_price' => (float) $snapshot->max_price,
                 'snapshot_date' => $snapshot->snapshot_date?->toDateString(),
+                'as_of' => $snapshot->snapshot_date?->format('M j, Y'),
                 'submission_count' => (int) $snapshot->submission_count,
             ])
             ->values();
 
-        $history = PriceSnapshot::query()
+        $historyQuery = PriceSnapshot::query()
             ->where('product_id', $product->id)
-            ->where('snapshot_date', '>=', now()->subDays(30)->toDateString())
-            ->selectRaw('snapshot_date, AVG(avg_price) as avg_price')
+            ->where('snapshot_date', '>=', now()->subDays(90)->toDateString());
+
+        if ($filterMarketId) {
+            $historyQuery->where('market_id', $filterMarketId);
+        }
+
+        $historyRows = $historyQuery
+            ->selectRaw('snapshot_date, AVG(avg_price) as avg_price, MIN(min_price) as min_price, MAX(max_price) as max_price, SUM(submission_count) as submission_count')
             ->groupBy('snapshot_date')
             ->orderBy('snapshot_date')
-            ->get()
-            ->map(fn ($row) => [
-                'date' => (string) $row->snapshot_date,
-                'avg_price' => round((float) $row->avg_price, 2),
-            ])
-            ->values();
+            ->get();
+
+        $history = [];
+        $changes = [];
+        $previous = null;
+
+        foreach ($historyRows as $row) {
+            $date = (string) $row->snapshot_date;
+            $avg = round((float) $row->avg_price, 2);
+            $point = [
+                'date' => $date,
+                'label' => Carbon::parse($date)->format('M j, Y'),
+                'avg_price' => $avg,
+                'min_price' => round((float) $row->min_price, 2),
+                'max_price' => round((float) $row->max_price, 2),
+                'submission_count' => (int) $row->submission_count,
+            ];
+            $history[] = $point;
+
+            if ($previous === null) {
+                $changes[] = [
+                    'date' => $date,
+                    'label' => $point['label'],
+                    'price' => $avg,
+                    'previous_price' => null,
+                    'change_amount' => null,
+                    'change_percent' => null,
+                    'direction' => 'start',
+                    'note' => 'First recorded price on this day',
+                ];
+            } else {
+                $delta = round($avg - $previous, 2);
+                if (abs($delta) >= 0.01) {
+                    $pct = $previous > 0 ? round(($delta / $previous) * 100, 2) : null;
+                    $changes[] = [
+                        'date' => $date,
+                        'label' => $point['label'],
+                        'price' => $avg,
+                        'previous_price' => $previous,
+                        'change_amount' => $delta,
+                        'change_percent' => $pct,
+                        'direction' => $delta > 0 ? 'up' : 'down',
+                        'note' => $delta > 0
+                            ? 'Price rose on this day'
+                            : 'Price fell on this day',
+                    ];
+                }
+            }
+
+            $previous = $avg;
+        }
+
+        // Newest changes first for the timeline UI.
+        $changes = array_reverse($changes);
 
         $averagePrice = $markets->avg('avg_price');
 
@@ -113,8 +172,10 @@ class ProductController extends Controller
                 'average_price' => $averagePrice ? round((float) $averagePrice, 2) : null,
                 'cheapest_market' => $markets->first(),
                 'market_count' => $markets->count(),
+                'history_market_id' => $filterMarketId,
             ],
             'history' => $history,
+            'price_changes' => $changes,
             'markets' => $markets,
         ]);
     }

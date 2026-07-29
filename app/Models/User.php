@@ -25,6 +25,8 @@ class User extends Authenticatable
         'email',
         'password',
         'phone',
+        'expo_push_token',
+        'fcm_device_token',
         'avatar',
         'role',
         'points',
@@ -67,6 +69,11 @@ class User extends Authenticatable
     public function airtimeClaims(): HasMany
     {
         return $this->hasMany(AirtimeClaim::class);
+    }
+
+    public function priceAlerts(): HasMany
+    {
+        return $this->hasMany(PriceAlert::class);
     }
 
     public function apiKeys(): HasMany

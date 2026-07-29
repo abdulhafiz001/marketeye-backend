@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\ProcessPriceAlertsJob;
 use App\Models\PriceSnapshot;
 use App\Models\PriceSubmission;
 use Carbon\Carbon;
@@ -139,7 +140,7 @@ class PriceSnapshotService
         string $source,
         string $snapshotDate
     ): PriceSnapshot {
-        return PriceSnapshot::query()->updateOrCreate(
+        $snapshot = PriceSnapshot::query()->updateOrCreate(
             [
                 'product_id' => $productId,
                 'market_id' => $marketId,
@@ -154,5 +155,9 @@ class PriceSnapshotService
                 'snapshot_source' => $source,
             ]
         );
+
+        ProcessPriceAlertsJob::dispatchForSnapshot($snapshot);
+
+        return $snapshot;
     }
 }

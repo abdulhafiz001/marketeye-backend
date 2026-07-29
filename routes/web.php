@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'home'])->name('home');
 Route::get('/developers', [LandingController::class, 'developers'])->name('developers');
+Route::get('/developers/openapi.json', [LandingController::class, 'openapi'])->name('developers.openapi');
+Route::get('/developers/swagger', [LandingController::class, 'swagger'])->name('developers.swagger');
+Route::get('/developers/postman.json', [LandingController::class, 'postman'])->name('developers.postman');
 
 // Developer portal (public register/login — separate from admin & mobile users)
 Route::prefix('developer')->group(function (): void {
@@ -48,6 +51,7 @@ Route::middleware(['web', 'auth:admin', 'web_admin'])->group(function (): void {
     Route::get('/admin/claims', [AdminWebController::class, 'claims'])->name('admin.claims.index');
     Route::get('/admin/prices', [AdminWebController::class, 'prices'])->name('admin.prices.index');
     Route::get('/admin/reports', [AdminWebController::class, 'reports'])->name('admin.reports.index');
+    Route::get('/admin/analytics', [AdminWebController::class, 'analytics'])->name('admin.analytics.index');
     Route::get('/admin/activity', [AdminWebController::class, 'activity'])->name('admin.activity');
     Route::get('/admin/external-data', [AdminWebController::class, 'externalData'])->name('admin.external.index');
     Route::get('/admin/api-keys', [AdminWebController::class, 'apiKeys'])->name('admin.api-keys.index');

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Site;
 use App\Http\Controllers\Controller;
 use App\Models\Market;
 use App\Models\PriceSnapshot;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -56,6 +58,48 @@ class LandingController extends Controller
     {
         return view('site.developers', [
             'baseUrl' => rtrim(config('app.url'), '/').'/api/v1/public',
+            'appUrl' => rtrim(config('app.url'), '/'),
         ]);
+    }
+
+    public function openapi(): JsonResponse
+    {
+        $path = public_path('openapi/public-api.v1.json');
+        $spec = json_decode((string) file_get_contents($path), true) ?: [];
+        $base = rtrim(config('app.url'), '/').'/api/v1/public';
+        $spec['servers'] = [
+            ['url' => $base, 'description' => 'This Market Eye instance'],
+        ];
+
+        return response()->json($spec);
+    }
+
+    public function swagger(): View
+    {
+        return view('site.swagger', [
+            'specUrl' => route('developers.openapi'),
+        ]);
+    }
+
+    public function postman(): Response
+    {
+        $path = public_path('openapi/MarketEye.PublicAPI.postman_collection.json');
+        $collection = json_decode((string) file_get_contents($path), true) ?: [];
+        $base = rtrim(config('app.url'), '/').'/api/v1/public';
+
+        foreach ($collection['variable'] ?? [] as $i => $var) {
+            if (($var['key'] ?? null) === 'baseUrl') {
+                $collection['variable'][$i]['value'] = $base;
+            }
+        }
+
+        return response(
+            json_encode($collection, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+            200,
+            [
+                'Content-Type' => 'application/json',
+                'Content-Disposition' => 'attachment; filename="MarketEye.PublicAPI.postman_collection.json"',
+            ]
+        );
     }
 }

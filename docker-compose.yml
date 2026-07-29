@@ -1,0 +1,78 @@
+# Local verification only — Coolify does not use this file.
+# Usage:
+#   docker compose up --build
+#   open http://localhost:8080/up
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      APP_NAME: MarketEye
+      APP_ENV: production
+      APP_DEBUG: "false"
+      # Local-only placeholder — replace in Coolify with `php artisan key:generate --show`
+      APP_KEY: base64:2fl+KtvkdphvQyEfC1r62KhjOeW+1z+qQ1mQ0p8yQ1E=
+      APP_URL: http://localhost:8080
+      ADMIN_PANEL_URL: http://localhost:8080/admin
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: debug
+
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: market_eye
+      DB_USERNAME: marketeye
+      DB_PASSWORD: secret
+      DB_WAIT_TIMEOUT: "120"
+
+      SESSION_DRIVER: database
+      SESSION_LIFETIME: "120"
+      QUEUE_CONNECTION: database
+      CACHE_STORE: database
+      BROADCAST_CONNECTION: log
+      FILESYSTEM_DISK: local
+
+      MAIL_MAILER: log
+      MAIL_FROM_ADDRESS: hello@example.com
+      MAIL_FROM_NAME: MarketEye
+
+      SANCTUM_STATEFUL_DOMAINS: localhost,127.0.0.1,localhost:8080
+
+      FIREBASE_PROJECT_ID: marketeye-f8498
+      FIREBASE_ANDROID_CHANNEL_ID: price-alerts
+      # Mount real file for FCM testing:
+      # FIREBASE_CREDENTIALS: /var/www/html/storage/app/firebase/service-account.json
+    volumes:
+      # Persist uploads / logs / firebase credentials across rebuilds (optional)
+      - app-storage:/var/www/html/storage/app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: market_eye
+      MYSQL_USER: marketeye
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: rootsecret
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootsecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  app-storage:

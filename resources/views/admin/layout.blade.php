@@ -200,6 +200,7 @@
         <a href="{{ route('admin.claims.index') }}" class="{{ request()->routeIs('admin.claims.*') ? 'active' : '' }}">Airtime claims</a>
         <a href="{{ route('admin.prices.index') }}" class="{{ request()->routeIs('admin.prices.*') ? 'active' : '' }}">Manage prices</a>
         <a href="{{ route('admin.reports.index') }}" class="{{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">Reports</a>
+        <a href="{{ route('admin.analytics.index') }}" class="{{ request()->routeIs('admin.analytics.*') ? 'active' : '' }}">Analytics</a>
         <a href="{{ route('admin.external.index') }}" class="{{ request()->routeIs('admin.external.*') ? 'active' : '' }}">External price data</a>
         <a href="{{ route('admin.api-keys.index') }}" class="{{ request()->routeIs('admin.api-keys.*') ? 'active' : '' }}">API keys</a>
         <a href="{{ route('admin.activity') }}" class="{{ request()->routeIs('admin.activity') ? 'active' : '' }}">Recent admin activity</a>

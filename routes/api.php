@@ -1,21 +1,25 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Admin\ActivityLogController;
+use App\Http\Controllers\Api\V1\Admin\CategoryManageController;
 use App\Http\Controllers\Api\V1\Admin\ClaimManageController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\ExternalSeedController;
 use App\Http\Controllers\Api\V1\Admin\ManualPriceController;
 use App\Http\Controllers\Api\V1\Admin\MarketManageController;
 use App\Http\Controllers\Api\V1\Admin\ProductManageController;
-use App\Http\Controllers\Api\V1\Admin\CategoryManageController;
 use App\Http\Controllers\Api\V1\Admin\SubmissionManageController;
 use App\Http\Controllers\Api\V1\Admin\UserManageController;
 use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\V1\GoogleSocialiteController;
+use App\Http\Controllers\Api\V1\BatchPriceSubmitController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\DeviceTokenController;
+use App\Http\Controllers\Api\V1\GoogleSocialiteController;
+use App\Http\Controllers\Api\V1\InsightsController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\MarketController;
 use App\Http\Controllers\Api\V1\MarketPriceController;
+use App\Http\Controllers\Api\V1\PriceAlertController;
 use App\Http\Controllers\Api\V1\PriceCompareController;
 use App\Http\Controllers\Api\V1\PriceSubmitController;
 use App\Http\Controllers\Api\V1\PriceTrendingController;
@@ -34,6 +38,7 @@ Route::prefix('v1')->group(function (): void {
     Route::get('/categories', [CategoryController::class, 'index']);
     Route::get('/prices/compare', PriceCompareController::class);
     Route::get('/prices/trending', PriceTrendingController::class);
+    Route::get('/insights', InsightsController::class);
 
     Route::prefix('public')->middleware('public_api_key')->group(function (): void {
         Route::get('/markets', [PublicMarketDataController::class, 'markets']);
@@ -60,11 +65,18 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware(['auth:sanctum', 'not_banned'])->group(function (): void {
         Route::post('/prices/submit', [PriceSubmitController::class, 'store']);
+        Route::post('/submissions/batch', [BatchPriceSubmitController::class, 'store']);
         Route::get('/user/submissions', UserSubmissionController::class);
         Route::get('/user/leaderboard', LeaderboardController::class);
         Route::get('/user/market-watches', [UserMarketWatchController::class, 'index']);
         Route::post('/user/market-watches', [UserMarketWatchController::class, 'store']);
         Route::delete('/user/market-watches/{productId}/{marketId}', [UserMarketWatchController::class, 'destroy']);
+        Route::get('/user/price-alerts', [PriceAlertController::class, 'index']);
+        Route::post('/user/price-alerts', [PriceAlertController::class, 'store']);
+        Route::put('/user/price-alerts/{id}', [PriceAlertController::class, 'update']);
+        Route::delete('/user/price-alerts/{id}', [PriceAlertController::class, 'destroy']);
+        Route::post('/user/device-token', [DeviceTokenController::class, 'store']);
+        Route::delete('/user/device-token', [DeviceTokenController::class, 'destroy']);
         Route::get('/wallet', [WalletController::class, 'show']);
         Route::post('/wallet/claim', [WalletController::class, 'claim']);
     });

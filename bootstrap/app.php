@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Coolify / reverse proxies terminate TLS and forward X-Forwarded-* headers.
+        // Without this, generated URLs and secure cookies break behind HTTPS.
+        $middleware->trustProxies(at: '*');
+
         // Must run before StartSession so admin/developer get separate cookies.
         $middleware->web(prepend: [
             \App\Http\Middleware\ConfigurePortalSession::class,

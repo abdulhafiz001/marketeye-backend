@@ -5,20 +5,21 @@ namespace App\Http\Controllers\AdminWeb;
 use App\Http\Controllers\Controller;
 use App\Models\Admin;
 use App\Models\AdminActivityLog;
+use App\Models\AirtimeClaim;
 use App\Models\ApiKey;
 use App\Models\Category;
 use App\Models\ExternalPriceSeed;
 use App\Models\Market;
-use App\Models\PriceSubmission;
 use App\Models\PriceSnapshot;
+use App\Models\PriceSubmission;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\AdminActivityLogger;
+use App\Services\AnalyticsService;
 use App\Services\ExternalDataSeedService;
 use App\Services\GamificationService;
 use App\Services\PriceSnapshotService;
 use App\Services\WalletService;
-use App\Models\AirtimeClaim;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -340,6 +341,11 @@ class AdminWebController extends Controller
             'weeklyMovers' => $weeklyMovers,
             'biggestIncrease' => $weeklyMovers->first(),
         ]);
+    }
+
+    public function analytics(AnalyticsService $analytics): View
+    {
+        return view('admin.analytics', $analytics->dashboard());
     }
 
     public function activity(): View

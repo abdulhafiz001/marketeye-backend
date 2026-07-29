@@ -1,0 +1,180 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Market Eye Public API",
+    "description": "Crowd-verified Nigerian market prices. Authenticate with an API key (`X-API-Key` or `Authorization: Bearer me_...`). Daily rate limits apply per key.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Market Eye Developers",
+      "url": "/developers"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1/public",
+      "description": "Public API base path (prepend your APP_URL)"
+    }
+  ],
+  "tags": [
+    { "name": "Catalog", "description": "Markets, categories, and products" },
+    { "name": "Prices", "description": "Latest verified market prices" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      },
+      "BearerApiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "me_..."
+      }
+    },
+    "schemas": {
+      "ApiEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "Market": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "area": { "type": "string", "nullable": true },
+          "city": { "type": "string", "nullable": true }
+        }
+      },
+      "PriceRow": {
+        "type": "object",
+        "properties": {
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" },
+              "unit": { "type": "string" }
+            }
+          },
+          "price": {
+            "type": "object",
+            "properties": {
+              "avg": { "type": "number" },
+              "min": { "type": "number" },
+              "max": { "type": "number" },
+              "currency": { "type": "string", "example": "NGN" }
+            }
+          },
+          "quality": {
+            "type": "object",
+            "properties": {
+              "submission_count": { "type": "integer" },
+              "low_confidence": { "type": "boolean" },
+              "confidence_level": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    { "ApiKeyHeader": [] },
+    { "BearerApiKey": [] }
+  ],
+  "paths": {
+    "/markets": {
+      "get": {
+        "tags": ["Catalog"],
+        "summary": "List active markets",
+        "responses": {
+          "200": {
+            "description": "Markets list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiEnvelope" }
+              }
+            }
+          },
+          "401": { "description": "Missing or invalid API key" },
+          "429": { "description": "Daily rate limit exceeded" }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": ["Catalog"],
+        "summary": "List product categories",
+        "responses": {
+          "200": {
+            "description": "Categories list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "tags": ["Catalog"],
+        "summary": "List products with measurement units",
+        "responses": {
+          "200": {
+            "description": "Products catalogue",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/markets/{id}/prices": {
+      "get": {
+        "tags": ["Prices"],
+        "summary": "Latest prices for a market",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Category slug or id filter"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Product name search"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Market prices",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiEnvelope" }
+              }
+            }
+          },
+          "404": { "description": "Market not found" }
+        }
+      }
+    }
+  }
+}

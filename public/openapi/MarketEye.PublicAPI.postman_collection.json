@@ -1,0 +1,59 @@
+{
+  "info": {
+    "_postman_id": "marketeye-public-api-v1",
+    "name": "Market Eye Public API",
+    "description": "Crowd-verified Nigerian market prices. Set `baseUrl` and `apiKey` collection variables.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000/api/v1/public" },
+    { "key": "apiKey", "value": "me_your_key_here" },
+    { "key": "marketId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "List markets",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-API-Key", "value": "{{apiKey}}" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/markets"
+      }
+    },
+    {
+      "name": "List categories",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-API-Key", "value": "{{apiKey}}" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/categories"
+      }
+    },
+    {
+      "name": "List products",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-API-Key", "value": "{{apiKey}}" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/products"
+      }
+    },
+    {
+      "name": "Market prices",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-API-Key", "value": "{{apiKey}}" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/markets/{{marketId}}/prices"
+      }
+    }
+  ]
+}

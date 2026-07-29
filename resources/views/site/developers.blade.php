@@ -37,9 +37,13 @@
         <div>
             <a href="{{ route('home') }}">Home</a>
             &nbsp;·&nbsp;
-            <a href="{{ route('developer.register') }}">Get API key</a>
+            <a href="{{ route('developers.swagger') }}">Swagger UI</a>
             &nbsp;·&nbsp;
-            <a href="{{ route('developer.login') }}">Developer login</a>
+            <a href="{{ route('developers.openapi') }}">OpenAPI</a>
+            &nbsp;·&nbsp;
+            <a href="{{ route('developers.postman') }}">Postman</a>
+            &nbsp;·&nbsp;
+            <a href="{{ route('developer.register') }}">Get API key</a>
         </div>
     </nav>
 
@@ -75,15 +79,36 @@ Authorization: Bearer me_your_key_here</pre>
     </div>
 
     <div class="card">
+        <h2>OpenAPI &amp; tooling</h2>
+        <p>
+            Interactive docs: <a href="{{ route('developers.swagger') }}">Swagger UI</a> ·
+            Machine-readable: <a href="{{ route('developers.openapi') }}">openapi.json</a> ·
+            Import into Postman: <a href="{{ route('developers.postman') }}">collection JSON</a>
+        </p>
+    </div>
+
+    <div class="card">
         <h2>Example — market prices</h2>
         <pre>curl -s "{{ $baseUrl }}/markets/1/prices" \
   -H "X-API-Key: me_your_key_here"</pre>
+        <h2 style="margin-top:18px;">Node.js</h2>
         <pre>const res = await fetch("{{ $baseUrl }}/markets/1/prices", {
-  headers: { "X-API-Key": "me_your_key_here" }
+  headers: { "X-API-Key": process.env.MARKETEYE_API_KEY }
 });
-const data = await res.json();
-// data.data.prices[0].price.avg
-// data.data.prices[0].measurement.unit  // e.g. "mudu", "50kg bag"</pre>
+const json = await res.json();
+console.log(json.data.prices[0].price.avg);
+console.log(json.data.prices[0].measurement.unit); // mudu, bag, ...</pre>
+        <h2 style="margin-top:18px;">Python</h2>
+        <pre>import os, requests
+
+r = requests.get(
+    "{{ $baseUrl }}/markets/1/prices",
+    headers={"X-API-Key": os.environ["MARKETEYE_API_KEY"]},
+    timeout=20,
+)
+r.raise_for_status()
+prices = r.json()["data"]["prices"]
+print(prices[0]["price"]["avg"], prices[0]["measurement"]["unit"])</pre>
     </div>
 
     <div class="card">
