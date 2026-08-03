@@ -1,86 +1,130 @@
 @extends('admin.layout')
 
 @section('title', 'Prices')
-
-@section('page_title', 'Manage prices')
+@section('page_title', 'Manage Prices')
 
 @push('styles')
 <style>
-    .price-form { grid-template-columns: minmax(220px, 1.2fr) minmax(280px, 1.7fr) minmax(150px, .8fr) minmax(150px, .8fr) auto; align-items:start; }
+    .card-head { 
+        display: flex; 
+        align-items: baseline; 
+        justify-content: space-between; 
+        gap: 10px; 
+        margin-bottom: 16px; 
+    }
+    .card-head .k { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+    .card-head .sub { color: var(--muted); font-size: 12px; }
+
+    .price-form { 
+        display: grid;
+        grid-template-columns: minmax(200px, 1.2fr) minmax(280px, 1.8fr) minmax(130px, 0.8fr) minmax(140px, 0.8fr) auto; 
+        gap: 14px;
+        align-items: end; 
+    }
+
+    .market-picker-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .market-filter {
+        flex: 1;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border, rgba(148, 163, 184, 0.2));
+        background: rgba(15, 23, 42, 0.6);
+        color: var(--text);
+        font-size: 13px;
+    }
+    .market-select-all { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; }
+    .market-select-all input { width: 14px; height: 14px; accent-color: #22C55E; }
+    
     .market-picker {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        max-height: 220px;
-        overflow: auto;
-        padding: 4px;
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        background: rgba(11,18,32,.55);
+        gap: 6px;
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 6px;
+        border: 1px solid var(--border, rgba(148, 163, 184, 0.2));
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.4);
     }
     .market-option {
         display: flex;
         align-items: center;
-        gap: 10px;
-        min-height: 44px;
-        padding: 10px 12px;
-        margin: 0;
-        border: 1px solid rgba(148,163,184,.16);
-        border-radius: 12px;
-        background: rgba(15,23,42,.75);
+        gap: 8px;
+        padding: 8px 10px;
+        border: 1px solid rgba(148,163,184,.12);
+        border-radius: 6px;
+        background: rgba(15, 23, 42, 0.8);
         color: var(--text);
         cursor: pointer;
-        text-transform: none;
-        letter-spacing: 0;
-        font-size: 13px;
-        font-weight: 800;
+        font-size: 12.5px;
+        font-weight: 600;
+        transition: all .15s ease;
     }
     .market-option:hover { border-color: rgba(34,197,94,.4); background: rgba(34,197,94,.08); }
-    .market-option input {
-        width: 18px;
-        height: 18px;
-        accent-color: #22C55E;
-        flex: 0 0 auto;
-    }
-    .market-option span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .price-form-actions { display: flex; align-items: end; height: 100%; }
+    .market-option.is-hidden { display: none !important; }
+    .market-option input { width: 16px; height: 16px; accent-color: #22C55E; }
+    .market-option span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
     .inline-price-form {
-        display: grid;
-        grid-template-columns: minmax(110px, 1fr) auto;
-        gap: 8px;
-        min-width: 230px;
+        display: flex;
+        gap: 6px;
         align-items: center;
     }
-    .inline-price-form input { min-width: 0; }
+    .inline-price-form input { width: 90px; }
+
+    tbody tr:hover { background: rgba(148, 163, 184, 0.04); }
+
+    /* Custom Price Bar Component */
+    .range-cell { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+    .range-cell .avg { font-weight: 800; font-size: 13px; }
+    .range-cell .lowhigh { color: var(--muted); font-size: 10px; display: flex; justify-content: space-between; }
+    .range-track { position: relative; height: 5px; border-radius: 999px; background: rgba(148, 163, 184, 0.2); }
+    .range-marker { position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%; background: #F59E0B; border: 2px solid #0f172a; transform: translate(-50%, -50%); }
+
+    .source-pill { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .source-pill.is-admin { background: rgba(59,130,246,.15); color: #60A5FA; }
+    .source-pill.is-trader { background: rgba(34,197,94,.15); color: #4ADE80; }
+
     @media (max-width: 1100px) {
         .price-form { grid-template-columns: 1fr 1fr; }
-        .market-picker { grid-template-columns: 1fr; }
-        .price-form-actions { height: auto; }
     }
     @media (max-width: 760px) {
         .price-form { grid-template-columns: 1fr; }
-        .market-picker { max-height: 260px; }
+        .market-picker { grid-template-columns: 1fr; }
     }
 </style>
 @endpush
 
 @section('content')
-<p class="page-hint">Set or update the price for each product in each market. These prices appear in the app as market snapshots.</p>
+<p class="page-hint" style="margin-bottom: 16px; color: var(--muted);">
+    Set or update prices across markets to refresh live snapshot metrics.
+</p>
 
-<div class="card" style="margin-bottom: 16px;">
-    <form method="post" action="{{ route('admin.prices.store') }}" class="form-grid price-form">
+<!-- Form Card -->
+<div class="card" style="margin-bottom: 20px;">
+    <div class="card-head">
+        <span class="k">Add or Update Price Snapshots</span>
+        <span class="sub">Applies to all selected markets simultaneously</span>
+    </div>
+    <form method="post" action="{{ route('admin.prices.store') }}" class="price-form">
         @csrf
         <div>
-            <label>Product</label>
-            <select name="product_id" required>
+            <label style="display:block; margin-bottom: 6px; font-size: 12px; font-weight: 700;">Product</label>
+            <select name="product_id" required style="width:100%;">
                 @foreach ($products as $product)
                     <option value="{{ $product->id }}">{{ $product->name }} ({{ $product->unit }})</option>
                 @endforeach
             </select>
         </div>
         <div>
-            <label>Markets (select one or more)</label>
-            <div class="market-picker">
+            <label style="display:block; margin-bottom: 6px; font-size: 12px; font-weight: 700;">Target Markets</label>
+            <div class="market-picker-head">
+                <input type="text" class="market-filter" id="marketFilter" placeholder="Search market...">
+                <label class="market-select-all">
+                    <input type="checkbox" id="marketSelectAll"> Select Visible
+                </label>
+            </div>
+            <div class="market-picker" id="marketPicker">
                 @foreach ($markets as $market)
                     <label class="market-option">
                         <input type="checkbox" name="market_ids[]" value="{{ $market->id }}">
@@ -88,51 +132,71 @@
                     </label>
                 @endforeach
             </div>
-            <small style="color:var(--muted);">Saving applies the same price and date to every market you tick.</small>
         </div>
         <div>
-            <label>Price</label>
-            <input name="price" type="number" min="1" step="0.01" placeholder="3500" required>
+            <label style="display:block; margin-bottom: 6px; font-size: 12px; font-weight: 700;">Price (₦)</label>
+            <input name="price" type="number" min="1" step="0.01" placeholder="3500" required style="width:100%;">
         </div>
         <div>
-            <label>Date</label>
-            <input name="effective_date" type="date" value="{{ now()->toDateString() }}" required>
+            <label style="display:block; margin-bottom: 6px; font-size: 12px; font-weight: 700;">Effective Date</label>
+            <input name="effective_date" type="date" value="{{ now()->toDateString() }}" required style="width:100%;">
         </div>
-        <div class="price-form-actions">
-            <button class="btn btn-primary" type="submit">Save price</button>
+        <div>
+            <button class="btn btn-primary" type="submit" style="width: 100%;">Save Snapshots</button>
         </div>
     </form>
 </div>
 
+<!-- Snapshots Data Card -->
 <div class="card">
-    <div style="overflow:auto;">
-        <table>
+    <div class="card-head">
+        <span class="k">Current Snapshots</span>
+        <span class="sub">{{ $snapshots->count() }} records</span>
+    </div>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
             <thead>
-            <tr>
-                <th>Product</th>
-                <th>Market</th>
-                <th>Average</th>
-                <th>Low</th>
-                <th>High</th>
-                <th>Submissions</th>
-                <th>Source</th>
-                <th>Date</th>
-                <th>Update</th>
-            </tr>
+                <tr style="border-bottom: 1px solid var(--border, rgba(148, 163, 184, 0.12)); color: var(--muted); font-size: 12px;">
+                    <th style="padding: 10px;">Product</th>
+                    <th style="padding: 10px;">Market</th>
+                    <th style="padding: 10px;">Price Range</th>
+                    <th style="padding: 10px;">Submissions</th>
+                    <th style="padding: 10px;">Source</th>
+                    <th style="padding: 10px;">Date</th>
+                    <th style="padding: 10px; text-align: right;">Quick Update</th>
+                </tr>
             </thead>
             <tbody>
-            @foreach ($snapshots as $snapshot)
-                <tr>
-                    <td>{{ $snapshot->product?->name }}<div style="color:var(--muted);font-size:11px;">{{ $snapshot->product?->unit }}</div></td>
-                    <td>{{ $snapshot->market?->name }}</td>
-                    <td>₦{{ number_format((float) $snapshot->avg_price, 2) }}</td>
-                    <td>₦{{ number_format((float) $snapshot->min_price, 2) }}</td>
-                    <td>₦{{ number_format((float) $snapshot->max_price, 2) }}</td>
-                    <td>{{ $snapshot->submission_count }}</td>
-                    <td><span class="pill">{{ str_replace('_', ' ', $snapshot->snapshot_source) }}</span></td>
-                    <td>{{ $snapshot->snapshot_date?->toDateString() }}</td>
-                    <td>
-                        <form method="post" action="{{ route('admin.prices.store') }}" class="inline-price-form">
+            @forelse ($snapshots as $snapshot)
+                @php
+                    $min = (float) $snapshot->min_price;
+                    $max = (float) $snapshot->max_price;
+                    $avg = (float) $snapshot->avg_price;
+                    $rangePct = $max > $min ? min(max((($avg - $min) / ($max - $min)) * 100, 0), 100) : 50;
+                    $isAdminSource = str_contains(strtolower($snapshot->snapshot_source ?? ''), 'admin');
+                @endphp
+                <tr style="border-bottom: 1px solid var(--border, rgba(148, 163, 184, 0.08));">
+                    <td style="padding: 10px; font-weight: 600;">
+                        {{ $snapshot->product?->name }}
+                        <div style="color:var(--muted); font-size: 11px; font-weight: normal;">{{ $snapshot->product?->unit }}</div>
+                    </td>
+                    <td style="padding: 10px;">{{ $snapshot->market?->name }}</td>
+                    <td style="padding: 10px;">
+                        <div class="range-cell">
+                            <span class="avg">₦{{ number_format($avg, 2) }}</span>
+                            <div class="range-track"><span class="range-marker" style="left: {{ $rangePct }}%;"></span></div>
+                            <div class="lowhigh"><span>₦{{ number_format($min, 0) }}</span><span>₦{{ number_format($max, 0) }}</span></div>
+                        </div>
+                    </td>
+                    <td style="padding: 10px;">{{ number_format($snapshot->submission_count) }}</td>
+                    <td style="padding: 10px;">
+                        <span class="source-pill {{ $isAdminSource ? 'is-admin' : 'is-trader' }}">
+                            {{ str_replace('_', ' ', $snapshot->snapshot_source) }}
+                        </span>
+                    </td>
+                    <td style="padding: 10px; color: var(--muted); font-size: 12px;">{{ $snapshot->snapshot_date?->toDateString() }}</td>
+                    <td style="padding: 10px; text-align: right;">
+                        <form method="post" action="{{ route('admin.prices.store') }}" class="inline-price-form" style="justify-content: flex-end;">
                             @csrf
                             <input type="hidden" name="product_id" value="{{ $snapshot->product_id }}">
                             <input type="hidden" name="market_id" value="{{ $snapshot->market_id }}">
@@ -142,12 +206,39 @@
                         </form>
                     </td>
                 </tr>
-            @endforeach
-            @if ($snapshots->isEmpty())
-                <tr><td colspan="9" style="color:var(--muted);">No prices yet.</td></tr>
-            @endif
+            @empty
+                <tr><td colspan="7" style="padding: 16px; text-align: center; color: var(--muted);">No price snapshots recorded.</td></tr>
+            @endforelse
             </tbody>
         </table>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    (() => {
+        const filterInput = document.getElementById('marketFilter');
+        const selectAll = document.getElementById('marketSelectAll');
+        const options = Array.from(document.querySelectorAll('#marketPicker .market-option'));
+
+        filterInput?.addEventListener('input', () => {
+            const query = filterInput.value.trim().toLowerCase();
+            options.forEach((opt) => {
+                const label = opt.querySelector('span').textContent.toLowerCase();
+                opt.classList.toggle('is-hidden', query.length > 0 && !label.includes(query));
+            });
+            if (selectAll) selectAll.checked = false;
+        });
+
+        selectAll?.addEventListener('change', () => {
+            options
+                .filter((opt) => !opt.classList.contains('is-hidden'))
+                .forEach((opt) => { 
+                    const cb = opt.querySelector('input');
+                    if (cb) cb.checked = selectAll.checked; 
+                });
+        });
+    })();
+</script>
+@endpush

@@ -1,8 +1,7 @@
 @extends('admin.layout')
 
 @section('title', 'Dashboard')
-
-@section('page_title', 'Dashboard')
+@section('page_title', 'Dashboard Overview')
 
 @push('head')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
@@ -10,132 +9,216 @@
 
 @push('styles')
 <style>
-    .dash-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
-    @media (max-width: 1100px) { .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    .dash-card .k { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-    .dash-card .v { margin-top: 8px; font-size: 26px; font-weight: 900; letter-spacing: -0.03em; }
-    .row2 { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 14px; margin-top: 14px; }
-    @media (max-width: 900px) { .row2 { grid-template-columns: 1fr; } }
-    .row2 canvas { width: 100% !important; height: 280px !important; }
-    .quick-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-    .quick-links a { display: inline-flex; align-items: center; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); font-weight: 800; font-size: 12px; text-decoration: none; }
-    .quick-links a:hover { color: var(--text); border-color: rgba(245,158,11,0.4); }
+    .dash-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    .dash-card {
+        padding: 16px;
+        border-radius: 12px;
+        background: var(--card-bg, #0f172a);
+        border: 1px solid var(--border, rgba(148, 163, 184, 0.12));
+    }
+    .dash-card .k {
+        color: var(--muted, #94a3b8);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    .dash-card .v {
+        margin-top: 6px;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    
+    .metric-hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .badge-trend {
+        padding: 4px 8px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .badge-trend.up { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
+    .badge-trend.down { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 16px;
+        margin-top: 20px;
+    }
+    @media (max-width: 960px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    .chart-container {
+        position: relative;
+        height: 280px;
+        width: 100%;
+    }
+
+    .quick-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .quick-links a {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border, rgba(148, 163, 184, 0.2));
+        color: var(--text, #f8fafc);
+        font-weight: 600;
+        font-size: 13px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .quick-links a:hover {
+        border-color: #f59e0b;
+        background: rgba(245, 158, 11, 0.08);
+    }
 </style>
 @endpush
 
 @section('content')
-<p class="page-hint">Overview of submissions, markets, and product coverage. Trader count includes only accounts with the user role.</p>
+<p class="page-hint" style="margin-bottom: 16px; color: var(--muted);">
+    Overview of system submissions, active market density, and catalog coverage.
+</p>
 
+<!-- Stat Cards -->
 <div class="dash-grid">
     <div class="card dash-card">
         <div class="k">Traders</div>
-        <div class="v">{{ $stats['trader_users'] }}</div>
+        <div class="v">{{ number_format($stats['trader_users']) }}</div>
     </div>
     <div class="card dash-card">
-        <div class="k">Submissions today</div>
-        <div class="v">{{ $stats['submissions_today'] }}</div>
+        <div class="k">Submissions Today</div>
+        <div class="v">{{ number_format($stats['submissions_today']) }}</div>
     </div>
     <div class="card dash-card">
-        <div class="k">Pending approvals</div>
-        <div class="v">{{ $stats['pending_approvals'] }}</div>
+        <div class="k">Pending Approvals</div>
+        <div class="v" style="color: {{ $stats['pending_approvals'] > 0 ? '#f59e0b' : 'inherit' }}">
+            {{ number_format($stats['pending_approvals']) }}
+        </div>
     </div>
     <div class="card dash-card">
-        <div class="k">Active markets</div>
-        <div class="v">{{ $stats['active_markets'] }}</div>
+        <div class="k">Active Markets</div>
+        <div class="v">{{ number_format($stats['active_markets']) }}</div>
     </div>
     <div class="card dash-card">
         <div class="k">Products</div>
-        <div class="v">{{ $stats['products_count'] }}</div>
+        <div class="v">{{ number_format($stats['products_count']) }}</div>
     </div>
 </div>
 
-<div class="card" style="margin-bottom: 14px;">
-    <div class="k" style="font-size: 11px;">Price change % (this week vs prior week)</div>
-    <div style="margin-top: 8px; font-size: 20px; font-weight: 900;">{{ $stats['price_change_percent_this_week'] }}%</div>
+<!-- Price Trend Highlight -->
+<div class="card dash-card metric-hero" style="margin-bottom: 20px;">
+    <div>
+        <div class="k">Price Change (This Week vs. Prior Week)</div>
+        <div class="v" style="margin-top: 4px;">{{ $stats['price_change_percent_this_week'] }}%</div>
+    </div>
+    <span class="badge-trend {{ $stats['price_change_percent_this_week'] >= 0 ? 'up' : 'down' }}">
+        {{ $stats['price_change_percent_this_week'] >= 0 ? '↑' : '↓' }} {{ abs($stats['price_change_percent_this_week']) }}%
+    </span>
 </div>
 
-<div class="row2">
+<!-- Analytics Section -->
+<div class="charts-grid">
     <div class="card">
-        <div style="margin-bottom: 12px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;">Submission volume (30 days)</div>
-        <canvas id="submissionsChart"></canvas>
+        <div class="k" style="margin-bottom: 14px;">Submission Volume (30 Days)</div>
+        <div class="chart-container">
+            <canvas id="submissionsChart"></canvas>
+        </div>
     </div>
     <div class="card">
-        <div style="margin-bottom: 12px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;">Avg price by category (this week)</div>
-        <canvas id="categoryChart"></canvas>
+        <div class="k" style="margin-bottom: 14px;">Avg Price by Category (This Week)</div>
+        <div class="chart-container">
+            <canvas id="categoryChart"></canvas>
+        </div>
     </div>
 </div>
 
-<div class="card" style="margin-top: 14px;">
-    <div style="margin-bottom: 12px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;">Recent pending submissions</div>
-    <div style="overflow:auto;">
-        <table>
+<!-- Table Section -->
+<div class="card" style="margin-top: 20px;">
+    <div class="k" style="margin-bottom: 14px;">Recent Pending Submissions</div>
+    <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; border-collapse: collapse;">
             <thead>
-            <tr>
-                <th>Product</th>
-                <th>Market</th>
-                <th>Price</th>
-                <th>User</th>
-                <th>Status</th>
-            </tr>
+                <tr style="text-align: left; border-bottom: 1px solid var(--border);">
+                    <th style="padding: 10px;">Product</th>
+                    <th style="padding: 10px;">Market</th>
+                    <th style="padding: 10px;">Price</th>
+                    <th style="padding: 10px;">User</th>
+                    <th style="padding: 10px;">Status</th>
+                </tr>
             </thead>
             <tbody>
-            @foreach ($recentPending as $s)
-                <tr>
-                    <td>{{ $s->product?->name }}</td>
-                    <td>{{ $s->market?->name }}</td>
-                    <td>
+            @forelse ($recentPending as $s)
+                <tr style="border-bottom: 1px solid var(--border, rgba(148, 163, 184, 0.08));">
+                    <td style="padding: 10px; font-weight: 600;">{{ $s->product?->name }}</td>
+                    <td style="padding: 10px;">{{ $s->market?->name }}</td>
+                    <td style="padding: 10px;">
                         ₦{{ number_format((float) $s->price, 2) }}
-                        <div style="color:var(--muted);font-size:11px;">
+                        <div style="color: var(--muted); font-size: 11px;">
                             {{ rtrim(rtrim(number_format((float) ($s->quantity_value ?? 1), 3), '0'), '.') }} {{ $s->quantity_unit ?: $s->product?->unit }}
                         </div>
                     </td>
-                    <td>{{ $s->user?->email ?? '—' }}</td>
-                    <td><span class="pill">{{ $s->status }}</span></td>
+                    <td style="padding: 10px; color: var(--muted);">{{ $s->user?->email ?? '—' }}</td>
+                    <td style="padding: 10px;"><span class="pill" style="padding: 4px 8px; border-radius: 4px; font-size: 11px; background: rgba(245, 158, 11, 0.15); color: #f59e0b;">{{ $s->status }}</span></td>
                 </tr>
-            @endforeach
-            @if ($recentPending->isEmpty())
-                <tr><td colspan="5" style="color:var(--muted);">No pending submissions.</td></tr>
-            @endif
+            @empty
+                <tr>
+                    <td colspan="5" style="padding: 16px; text-align: center; color: var(--muted);">No pending submissions found.</td>
+                </tr>
+            @endforelse
             </tbody>
         </table>
     </div>
 </div>
 
+<!-- Navigation Quick Links -->
 <div class="quick-links">
-    <a href="{{ route('admin.submissions.index') }}">Review all submissions →</a>
-    <a href="{{ route('admin.products.index') }}">Manage products →</a>
-    <a href="{{ route('admin.markets.index') }}">Manage markets →</a>
+    <a href="{{ route('admin.submissions.index') }}">Review All Submissions →</a>
+    <a href="{{ route('admin.products.index') }}">Manage Products →</a>
+    <a href="{{ route('admin.markets.index') }}">Manage Markets →</a>
 </div>
 @endsection
 
 @push('scripts')
 <script>
-    const submissionLabels = @json($submissionsChart['labels']);
-    const submissionCounts = @json($submissionsChart['values']);
-    const catLabels = @json($categoryChart['labels']);
-    const catAvgs = @json($categoryChart['values']);
-
     const chartText = '#94A3B8';
-    const chartGrid = 'rgba(148, 163, 184, 0.15)';
+    const chartGrid = 'rgba(148, 163, 184, 0.1)';
 
     new Chart(document.getElementById('submissionsChart'), {
         type: 'line',
         data: {
-            labels: submissionLabels,
+            labels: @json($submissionsChart['labels']),
             datasets: [{
                 label: 'Submissions',
-                data: submissionCounts,
+                data: @json($submissionsChart['values']),
                 borderColor: '#22C55E',
-                backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
                 fill: true,
-                tension: 0.25,
+                tension: 0.3,
+                pointRadius: 2
             }]
         },
         options: {
-            plugins: { legend: { labels: { color: '#CBD5E1' } } },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
             scales: {
                 x: { ticks: { color: chartText }, grid: { color: chartGrid } },
-                y: { ticks: { color: chartText }, grid: { color: chartGrid } },
+                y: { ticks: { color: chartText }, grid: { color: chartGrid } }
             }
         }
     });
@@ -143,20 +226,23 @@
     new Chart(document.getElementById('categoryChart'), {
         type: 'bar',
         data: {
-            labels: catLabels,
+            labels: @json($categoryChart['labels']),
             datasets: [{
                 label: 'Avg ₦',
-                data: catAvgs,
-                backgroundColor: 'rgba(245, 158, 11, 0.55)',
-                borderColor: 'rgba(245, 158, 11, 0.9)',
+                data: @json($categoryChart['values']),
+                backgroundColor: 'rgba(245, 158, 11, 0.65)',
+                borderColor: '#F59E0B',
                 borderWidth: 1,
+                borderRadius: 4
             }]
         },
         options: {
-            plugins: { legend: { labels: { color: '#CBD5E1' } } },
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
             scales: {
                 x: { ticks: { color: chartText }, grid: { color: chartGrid } },
-                y: { ticks: { color: chartText }, grid: { color: chartGrid } },
+                y: { ticks: { color: chartText }, grid: { color: chartGrid } }
             }
         }
     });
