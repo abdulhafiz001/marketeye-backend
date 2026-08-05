@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Support\CategoryIcon;
 use Illuminate\Http\JsonResponse;
 
 class CategoryController extends Controller
@@ -21,7 +22,7 @@ class CategoryController extends Controller
                 'id' => $c->id,
                 'name' => $c->name,
                 'slug' => $c->slug,
-                'icon' => $c->icon,
+                'icon' => CategoryIcon::resolve($c->icon, $c->name, $c->slug),
                 'product_count' => (int) $c->products_count,
             ]);
 

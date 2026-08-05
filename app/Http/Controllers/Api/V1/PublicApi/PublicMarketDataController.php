@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Market;
 use App\Models\PriceSnapshot;
 use App\Models\Product;
+use App\Support\CategoryIcon;
 use App\Support\PriceSnapshotPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +54,7 @@ class PublicMarketDataController extends Controller
                 'id' => $c->id,
                 'name' => $c->name,
                 'slug' => $c->slug,
-                'icon' => $c->icon,
+                'icon' => CategoryIcon::resolve($c->icon, $c->name, $c->slug),
                 'product_count' => (int) $c->products_count,
             ]);
 

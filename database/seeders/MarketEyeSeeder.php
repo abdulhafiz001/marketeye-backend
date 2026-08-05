@@ -60,7 +60,7 @@ class MarketEyeSeeder extends Seeder
             ['name' => 'Grains & Cereals', 'slug' => 'grains-cereals', 'icon' => 'barley'],
             ['name' => 'Protein & Meat', 'slug' => 'protein-meat', 'icon' => 'food-drumstick'],
             ['name' => 'Cooking Essentials', 'slug' => 'cooking-essentials', 'icon' => 'pot-steam'],
-            ['name' => 'Fruits', 'slug' => 'fruits', 'icon' => 'fruit-grapes'],
+            ['name' => 'Fruits', 'slug' => 'fruits', 'icon' => 'fruit-watermelon'],
             ['name' => 'Beverages', 'slug' => 'beverages', 'icon' => 'cup'],
         ];
 
