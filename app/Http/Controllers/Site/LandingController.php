@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Site;
 
 use App\Http\Controllers\Controller;
+use App\Models\Developer;
 use App\Models\Market;
 use App\Models\PriceSnapshot;
 use Illuminate\Http\JsonResponse;
@@ -56,9 +57,13 @@ class LandingController extends Controller
 
     public function developers(): View
     {
+        $appUrl = rtrim((string) config('app.url'), '/');
+
         return view('site.developers', [
-            'baseUrl' => rtrim(config('app.url'), '/').'/api/v1/public',
-            'appUrl' => rtrim(config('app.url'), '/'),
+            'baseUrl' => $appUrl.'/api/v1/public',
+            'appUrl' => $appUrl,
+            'productionBaseUrl' => 'https://marketeye.ahzcode.sbs/api/v1/public',
+            'defaultDailyLimit' => Developer::DEFAULT_DAILY_LIMIT,
         ]);
     }
 
@@ -66,9 +71,16 @@ class LandingController extends Controller
     {
         $path = public_path('openapi/public-api.v1.json');
         $spec = json_decode((string) file_get_contents($path), true) ?: [];
-        $base = rtrim(config('app.url'), '/').'/api/v1/public';
+        $base = rtrim((string) config('app.url'), '/').'/api/v1/public';
         $spec['servers'] = [
-            ['url' => $base, 'description' => 'This Market Eye instance'],
+            [
+                'url' => 'https://marketeye.ahzcode.sbs/api/v1/public',
+                'description' => 'Production (canonical)',
+            ],
+            [
+                'url' => $base,
+                'description' => 'This Market Eye instance (from APP_URL)',
+            ],
         ];
 
         return response()->json($spec);

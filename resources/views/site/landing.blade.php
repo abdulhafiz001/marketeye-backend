@@ -69,16 +69,40 @@
         /* ---------- Nav ---------- */
         .nav {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 20px 0; gap: 16px;
+            padding: 16px 0; gap: 16px; position: relative; z-index: 40;
         }
         .brand {
             font-family: 'Space Grotesk', system-ui, sans-serif;
             font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em;
-            color: var(--indigo-950);
+            color: var(--indigo-950); text-decoration: none;
         }
+        .nav-toggle {
+            display: none;
+            width: 44px; height: 44px; border-radius: 10px;
+            border: 1.5px solid var(--line); background: #fff;
+            align-items: center; justify-content: center; cursor: pointer; padding: 0;
+        }
+        .nav-toggle span {
+            display: block; width: 18px; height: 2px; background: var(--indigo-950);
+            position: relative;
+        }
+        .nav-toggle span::before,
+        .nav-toggle span::after {
+            content: ''; position: absolute; left: 0; width: 18px; height: 2px;
+            background: var(--indigo-950);
+        }
+        .nav-toggle span::before { top: -6px; }
+        .nav-toggle span::after { top: 6px; }
+        .nav-toggle[aria-expanded="true"] span { background: transparent; }
+        .nav-toggle[aria-expanded="true"] span::before { top: 0; transform: rotate(45deg); }
+        .nav-toggle[aria-expanded="true"] span::after { top: 0; transform: rotate(-45deg); }
         .nav-links { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
         .nav-links a { text-decoration: none; font-weight: 500; font-size: .92rem; color: var(--muted); }
         .nav-links a:hover { color: var(--indigo-950); }
+        .nav-backdrop {
+            display: none; position: fixed; inset: 0; background: rgba(19,31,56,.35); z-index: 30;
+        }
+        .nav-backdrop.is-open { display: block; }
         .btn {
             display: inline-flex; align-items: center; justify-content: center; gap: 8px;
             text-decoration: none; border: none; cursor: pointer;
@@ -309,11 +333,31 @@
             .trust-strip, .steps, .verify-grid, .voices, .footer-grid { grid-template-columns: 1fr 1fr; }
             .verify-grid { grid-template-columns: 1fr; }
         }
+        @media (max-width: 768px) {
+            .nav-toggle { display: inline-flex; }
+            .nav-links {
+                display: none;
+                position: absolute; top: calc(100% + 8px); left: 0; right: 0;
+                flex-direction: column; align-items: stretch; gap: 4px;
+                background: #fff; border: 1px solid var(--line); border-radius: 14px;
+                padding: 10px; box-shadow: 0 18px 40px rgba(19,31,56,.14); z-index: 40;
+            }
+            .nav-links.is-open { display: flex; }
+            .nav-links a {
+                padding: 12px 14px; border-radius: 10px; min-height: 44px;
+                display: flex; align-items: center;
+            }
+            .nav-links a:hover { background: var(--chalk-100); }
+            .nav-links .btn { width: 100%; justify-content: center; margin-top: 4px; }
+        }
         @media (max-width: 560px) {
             .trust-strip, .steps, .voices, .footer-grid { grid-template-columns: 1fr; }
             .steps::before { display: none; }
-            .nav-links a.hide-sm { display: none; }
             .cta-band { padding: 32px 24px; }
+            .tag-stack { min-height: 280px; }
+            .tag-stack .price-tag:nth-child(1) { width: 72%; left: 8%; }
+            .tag-stack .price-tag:nth-child(2) { width: 68%; }
+            .tag-stack .price-tag:nth-child(3) { width: 66%; right: 2%; }
         }
     </style>
 </head>
@@ -349,13 +393,17 @@
         </div>
     @endif
 
+    <div class="nav-backdrop" id="navBackdrop" hidden></div>
     <div class="wrap">
-        <nav class="nav">
-            <div class="brand">Market Eye</div>
-            <div class="nav-links">
-                <a class="hide-sm" href="#prices">Live prices</a>
-                <a class="hide-sm" href="#how">How it works</a>
-                <a class="hide-sm" href="#trust">Trust</a>
+        <nav class="nav" aria-label="Primary">
+            <a class="brand" href="{{ route('home') }}">Market Eye</a>
+            <button type="button" class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks" aria-label="Open menu">
+                <span></span>
+            </button>
+            <div class="nav-links" id="navLinks">
+                <a href="#prices">Live prices</a>
+                <a href="#how">How it works</a>
+                <a href="#trust">Trust</a>
                 <a href="{{ route('developers') }}">Developer API</a>
                 <a class="btn btn-primary" href="{{ route('developer.login') }}">Developer login</a>
             </div>
@@ -580,6 +628,31 @@
     </div>
 
     <script>
+        (function () {
+            const toggle = document.getElementById('navToggle');
+            const links = document.getElementById('navLinks');
+            const backdrop = document.getElementById('navBackdrop');
+            if (!toggle || !links) return;
+
+            const setOpen = (open) => {
+                links.classList.toggle('is-open', open);
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+                if (backdrop) {
+                    backdrop.classList.toggle('is-open', open);
+                    backdrop.hidden = !open;
+                }
+                document.body.style.overflow = open ? 'hidden' : '';
+            };
+
+            toggle.addEventListener('click', () => setOpen(!links.classList.contains('is-open')));
+            backdrop?.addEventListener('click', () => setOpen(false));
+            links.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => setOpen(false)));
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 768) setOpen(false);
+            });
+        })();
+
         document.querySelectorAll('[data-carousel]').forEach((el) => {
             let dir = 1;
             setInterval(() => {

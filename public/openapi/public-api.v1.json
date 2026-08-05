@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Market Eye Public API",
-    "description": "Crowd-verified Nigerian market prices. Authenticate with an API key (`X-API-Key` or `Authorization: Bearer me_...`). Daily rate limits apply per key.",
+    "description": "Crowd-verified Nigerian market prices. Authenticate with an API key (`X-API-Key` or `Authorization: Bearer me_...`). Daily rate limits apply per key (default 200). Responses are not paginated.",
     "version": "1.0.0",
     "contact": {
       "name": "Market Eye Developers",
@@ -11,8 +11,12 @@
   },
   "servers": [
     {
+      "url": "https://marketeye.ahzcode.sbs/api/v1/public",
+      "description": "Production (canonical)"
+    },
+    {
       "url": "/api/v1/public",
-      "description": "Public API base path (prepend your APP_URL)"
+      "description": "Relative path on the current host"
     }
   ],
   "tags": [
@@ -41,13 +45,55 @@
           "data": { "type": "object" }
         }
       },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string" },
+          "errors": { "type": "object" },
+          "limit": { "type": "integer" },
+          "resets_at": { "type": "string", "format": "date-time" }
+        }
+      },
       "Market": {
         "type": "object",
         "properties": {
           "id": { "type": "integer" },
           "name": { "type": "string" },
           "area": { "type": "string", "nullable": true },
-          "city": { "type": "string", "nullable": true }
+          "city": { "type": "string", "nullable": true },
+          "state": { "type": "string", "nullable": true },
+          "lat": { "type": "number", "nullable": true },
+          "lng": { "type": "number", "nullable": true },
+          "description": { "type": "string", "nullable": true }
+        }
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "icon": { "type": "string", "nullable": true },
+          "product_count": { "type": "integer" }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "unit": { "type": "string" },
+          "description": { "type": "string", "nullable": true },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" },
+              "slug": { "type": "string" }
+            }
+          }
         }
       },
       "PriceRow": {
@@ -58,7 +104,24 @@
             "properties": {
               "id": { "type": "integer" },
               "name": { "type": "string" },
+              "slug": { "type": "string" },
               "unit": { "type": "string" }
+            }
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" },
+              "slug": { "type": "string" }
+            }
+          },
+          "market": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" },
+              "area": { "type": "string", "nullable": true }
             }
           },
           "price": {
@@ -70,14 +133,23 @@
               "currency": { "type": "string", "example": "NGN" }
             }
           },
+          "measurement": {
+            "type": "object",
+            "properties": {
+              "unit": { "type": "string" },
+              "note": { "type": "string" }
+            }
+          },
           "quality": {
             "type": "object",
             "properties": {
               "submission_count": { "type": "integer" },
               "low_confidence": { "type": "boolean" },
-              "confidence_level": { "type": "string" }
+              "confidence_level": { "type": "string", "enum": ["high", "medium", "low", "stale"] },
+              "is_stale": { "type": "boolean" }
             }
-          }
+          },
+          "updated_at": { "type": "string" }
         }
       }
     }
@@ -91,12 +163,93 @@
       "get": {
         "tags": ["Catalog"],
         "summary": "List active markets",
+        "description": "Returns the full list of active markets. Not paginated. No query parameters.",
         "responses": {
           "200": {
             "description": "Markets list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiEnvelope" }
+                "schema": { "$ref": "#/components/schemas/ApiEnvelope" },
+                "example": {
+                  "success": true,
+                  "message": "OK",
+                  "data": {
+                    "markets": [
+                      {
+                        "id": 1,
+                        "name": "Wuse Market",
+                        "area": "Wuse",
+                        "city": "Abuja",
+                        "state": "FCT",
+                        "lat": 9.0765,
+                        "lng": 7.3986,
+                        "description": "..."
+                      }
+                    ],
+                    "meta": {
+                      "units": ["kg", "mudu", "paint", "bag", "congo", "piece", "litre", "derica"],
+                      "currency": "NGN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": {
+                  "success": false,
+                  "message": "API key required. Pass X-API-Key or Authorization: Bearer me_…"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Daily rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": {
+                  "success": false,
+                  "message": "Daily API request limit reached.",
+                  "limit": 200,
+                  "resets_at": "2026-08-05T23:59:59+00:00"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": ["Catalog"],
+        "summary": "List product categories",
+        "description": "Full list. Not paginated. No query parameters.",
+        "responses": {
+          "200": {
+            "description": "Categories list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiEnvelope" },
+                "example": {
+                  "success": true,
+                  "message": "OK",
+                  "data": {
+                    "categories": [
+                      {
+                        "id": 2,
+                        "name": "Grains",
+                        "slug": "grains",
+                        "icon": "grain",
+                        "product_count": 12
+                      }
+                    ]
+                  }
+                }
               }
             }
           },
@@ -105,35 +258,38 @@
         }
       }
     },
-    "/categories": {
-      "get": {
-        "tags": ["Catalog"],
-        "summary": "List product categories",
-        "responses": {
-          "200": {
-            "description": "Categories list",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiEnvelope" }
-              }
-            }
-          }
-        }
-      }
-    },
     "/products": {
       "get": {
         "tags": ["Catalog"],
         "summary": "List products with measurement units",
+        "description": "Full catalogue. Not paginated. No query parameters.",
         "responses": {
           "200": {
             "description": "Products catalogue",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiEnvelope" }
+                "schema": { "$ref": "#/components/schemas/ApiEnvelope" },
+                "example": {
+                  "success": true,
+                  "message": "OK",
+                  "data": {
+                    "products": [
+                      {
+                        "id": 1,
+                        "name": "Rice (local)",
+                        "slug": "rice-local",
+                        "unit": "50kg bag",
+                        "description": "...",
+                        "category": { "id": 2, "name": "Grains", "slug": "grains" }
+                      }
+                    ]
+                  }
+                }
               }
             }
-          }
+          },
+          "401": { "description": "Missing or invalid API key" },
+          "429": { "description": "Daily rate limit exceeded" }
         }
       }
     },
@@ -141,6 +297,7 @@
       "get": {
         "tags": ["Prices"],
         "summary": "Latest prices for a market",
+        "description": "Full matching list (not paginated). Filter with category slug and/or product name search.",
         "parameters": [
           {
             "name": "id",
@@ -153,14 +310,14 @@
             "in": "query",
             "required": false,
             "schema": { "type": "string" },
-            "description": "Category slug or id filter"
+            "description": "Category slug only (e.g. grains). Numeric ids are not accepted."
           },
           {
             "name": "search",
             "in": "query",
             "required": false,
             "schema": { "type": "string" },
-            "description": "Product name search"
+            "description": "Product name contains (case-insensitive)"
           }
         ],
         "responses": {
@@ -172,7 +329,21 @@
               }
             }
           },
-          "404": { "description": "Market not found" }
+          "401": { "description": "Missing or invalid API key" },
+          "404": {
+            "description": "Market not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": {
+                  "success": false,
+                  "message": "Market not found.",
+                  "errors": {}
+                }
+              }
+            }
+          },
+          "429": { "description": "Daily rate limit exceeded" }
         }
       }
     }

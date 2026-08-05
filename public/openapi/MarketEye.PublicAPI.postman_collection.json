@@ -6,7 +6,7 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://127.0.0.1:8000/api/v1/public" },
+    { "key": "baseUrl", "value": "https://marketeye.ahzcode.sbs/api/v1/public" },
     { "key": "apiKey", "value": "me_your_key_here" },
     { "key": "marketId", "value": "1" }
   ],
