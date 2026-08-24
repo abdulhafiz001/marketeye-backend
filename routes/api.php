@@ -11,8 +11,10 @@ use App\Http\Controllers\Api\V1\Admin\ProductManageController;
 use App\Http\Controllers\Api\V1\Admin\SubmissionManageController;
 use App\Http\Controllers\Api\V1\Admin\UserManageController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BasketOptimizerController;
 use App\Http\Controllers\Api\V1\BatchPriceSubmitController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\DashboardSummaryController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\GoogleSocialiteController;
 use App\Http\Controllers\Api\V1\InsightsController;
@@ -36,7 +38,9 @@ Route::prefix('v1')->group(function (): void {
     Route::get('/products', [ProductController::class, 'index']);
     Route::get('/products/{id}', [ProductController::class, 'show']);
     Route::get('/categories', [CategoryController::class, 'index']);
+    Route::get('/dashboard/summary', DashboardSummaryController::class);
     Route::get('/prices/compare', PriceCompareController::class);
+    Route::post('/prices/basket-compare', BasketOptimizerController::class);
     Route::get('/prices/trending', PriceTrendingController::class);
     Route::get('/insights', InsightsController::class);
 
