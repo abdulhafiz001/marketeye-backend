@@ -117,16 +117,61 @@ class AdminWebController extends Controller
     public function dashboard(): View
     {
         $today = Carbon::today();
-
-        $submissionsToday = PriceSubmission::query()
-            ->whereDate('submitted_at', $today)
-            ->count();
-
-        $pending = PriceSubmission::query()
-            ->where('status', PriceSubmission::STATUS_PENDING)
-            ->count();
-
         $weekAgo = $today->copy()->subDays(7);
+        $monthAgo = $today->copy()->subDays(30);
+
+        // Submissions counts
+        $submissionsToday = PriceSubmission::query()->whereDate('submitted_at', $today)->count();
+        $submissions30d = PriceSubmission::query()->where('submitted_at', '>=', $monthAgo)->count();
+        $totalSubmissions = PriceSubmission::query()->count();
+        $pending = PriceSubmission::query()->where('status', PriceSubmission::STATUS_PENDING)->count();
+        $approvedCount = PriceSubmission::query()->where('status', PriceSubmission::STATUS_APPROVED)->count();
+        $rejectedCount = PriceSubmission::query()->where('status', PriceSubmission::STATUS_REJECTED)->count();
+
+        // Integrity & Outlier Analytics
+        $pendingOutliers = PriceSubmission::query()
+            ->where('status', PriceSubmission::STATUS_PENDING)
+            ->where('is_outlier', true)
+            ->count();
+        $totalOutliers = PriceSubmission::query()->where('is_outlier', true)->count();
+        $geoverifiedCount = PriceSubmission::query()->where('is_geoverified', true)->count();
+        $geoverifiedRate = $totalSubmissions > 0
+            ? round(($geoverifiedCount / $totalSubmissions) * 100, 1)
+            : 0.0;
+        $approvalRate = ($approvedCount + $rejectedCount) > 0
+            ? round(($approvedCount / ($approvedCount + $rejectedCount)) * 100, 1)
+            : 0.0;
+
+        // User & Community Engagement
+        $tradersCount = User::query()->where('role', User::ROLE_USER)->count();
+        $activeTraders30d = PriceSubmission::query()
+            ->where('submitted_at', '>=', $monthAgo)
+            ->distinct('user_id')
+            ->count('user_id');
+        $totalPointsCirculation = (int) User::query()->sum('points');
+
+        // Price Alerts & Device Push Tokens
+        $activePriceAlerts = \App\Models\PriceAlert::query()->where('is_active', true)->count();
+        $pushDeviceTokens = User::query()
+            ->where(function ($q) {
+                $q->whereNotNull('fcm_device_token')->orWhereNotNull('expo_push_token');
+            })
+            ->count();
+
+        // Wallet Liability & Developer API Keys
+        $pendingAirtimeClaims = AirtimeClaim::query()->where('status', AirtimeClaim::STATUS_PENDING)->count();
+        $pendingAirtimeAmount = (float) AirtimeClaim::query()->where('status', AirtimeClaim::STATUS_PENDING)->sum('amount');
+        $unclaimedWalletBalance = (float) User::query()->sum('wallet_balance');
+        $totalOutstandingLiability = $pendingAirtimeAmount + $unclaimedWalletBalance;
+        $activeApiKeys = ApiKey::query()->where('is_active', true)->count();
+
+        // Catalog & Market metrics
+        $activeMarkets = Market::query()->where('is_active', true)->count();
+        $productsCount = Product::query()->where('is_active', true)->count();
+        $categoriesCount = Category::query()->count();
+        $totalSnapshots = PriceSnapshot::query()->count();
+
+        // Inflation / weekly shift
         $avgThisWeek = (float) (PriceSnapshot::query()
             ->where('snapshot_date', '>=', $weekAgo)
             ->avg('avg_price') ?? 0);
@@ -138,6 +183,17 @@ class AdminWebController extends Controller
         $pctChange = $avgPrevWindow > 0
             ? round((($avgThisWeek - $avgPrevWindow) / $avgPrevWindow) * 100, 2)
             : 0.0;
+
+        // Most active market & most reported commodity
+        $mostActiveMarket = Market::query()
+            ->withCount('priceSubmissions')
+            ->orderByDesc('price_submissions_count')
+            ->first();
+
+        $mostReportedProduct = Product::query()
+            ->withCount('priceSubmissions')
+            ->orderByDesc('price_submissions_count')
+            ->first();
 
         $submissionsPerDay = PriceSubmission::query()
             ->selectRaw('DATE(submitted_at) as d, COUNT(*) as c')
@@ -158,8 +214,9 @@ class AdminWebController extends Controller
         $recentPending = PriceSubmission::query()
             ->with(['product', 'market', 'user'])
             ->where('status', PriceSubmission::STATUS_PENDING)
+            ->orderByDesc('is_outlier')
             ->orderByDesc('submitted_at')
-            ->limit(10)
+            ->limit(15)
             ->get();
 
         $submissionsChart = [
@@ -177,12 +234,32 @@ class AdminWebController extends Controller
 
         return view('admin.dashboard', [
             'stats' => [
-                'trader_users' => User::query()->where('role', User::ROLE_USER)->count(),
+                'trader_users' => $tradersCount,
+                'active_traders_30d' => $activeTraders30d,
                 'submissions_today' => $submissionsToday,
+                'submissions_30d' => $submissions30d,
+                'total_submissions' => $totalSubmissions,
                 'pending_approvals' => $pending,
-                'active_markets' => Market::query()->where('is_active', true)->count(),
-                'products_count' => Product::query()->where('is_active', true)->count(),
+                'pending_outliers' => $pendingOutliers,
+                'total_outliers' => $totalOutliers,
+                'geoverified_count' => $geoverifiedCount,
+                'geoverified_rate' => $geoverifiedRate,
+                'approval_rate' => $approvalRate,
+                'active_markets' => $activeMarkets,
+                'products_count' => $productsCount,
+                'categories_count' => $categoriesCount,
+                'total_snapshots' => $totalSnapshots,
                 'price_change_percent_this_week' => $pctChange,
+                'active_price_alerts' => $activePriceAlerts,
+                'push_device_tokens' => $pushDeviceTokens,
+                'pending_claims_count' => $pendingAirtimeClaims,
+                'pending_claims_amount' => $pendingAirtimeAmount,
+                'unclaimed_wallet_balance' => $unclaimedWalletBalance,
+                'total_liability' => $totalOutstandingLiability,
+                'active_api_keys' => $activeApiKeys,
+                'total_points' => $totalPointsCirculation,
+                'most_active_market' => $mostActiveMarket?->name ?? '—',
+                'most_reported_product' => $mostReportedProduct?->name ?? '—',
             ],
             'submissionsChart' => $submissionsChart,
             'categoryChart' => $categoryChart,
