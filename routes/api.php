@@ -64,6 +64,7 @@ Route::prefix('v1')->group(function (): void {
         Route::middleware(['auth:sanctum', 'not_banned'])->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'me']);
+            Route::patch('/me', [AuthController::class, 'updateProfile']);
         });
     });
 
@@ -78,6 +79,7 @@ Route::prefix('v1')->group(function (): void {
         Route::get('/user/price-alerts', [PriceAlertController::class, 'index']);
         Route::post('/user/price-alerts', [PriceAlertController::class, 'store']);
         Route::put('/user/price-alerts/{id}', [PriceAlertController::class, 'update']);
+        Route::post('/user/price-alerts/{id}/acknowledge', [PriceAlertController::class, 'acknowledge']);
         Route::delete('/user/price-alerts/{id}', [PriceAlertController::class, 'destroy']);
         Route::post('/user/device-token', [DeviceTokenController::class, 'store']);
         Route::delete('/user/device-token', [DeviceTokenController::class, 'destroy']);

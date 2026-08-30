@@ -6,6 +6,7 @@ use App\Http\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\LoginRequest;
 use App\Http\Requests\Api\V1\RegisterRequest;
+use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Mail\WelcomeMail;
 use App\Models\User;
 use App\Services\GoogleAuthService;
@@ -142,6 +143,21 @@ class AuthController extends Controller
         ]);
     }
 
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->fill([
+            'name' => $request->string('name')->toString(),
+            'email' => $request->string('email')->toString(),
+            'phone' => $request->input('phone'),
+        ]);
+        $user->save();
+
+        return $this->success([
+            'user' => $this->userPayload($user),
+        ], 'Profile updated.');
+    }
+
     private function userPayload(User $user): array
     {
         return [
@@ -153,6 +169,7 @@ class AuthController extends Controller
             'role' => $user->role,
             'points' => (int) $user->points,
             'wallet_balance' => (int) $user->wallet_balance,
+            'submission_streak' => (int) ($user->submission_streak ?? 0),
             'verified' => (bool) $user->verified,
         ];
     }

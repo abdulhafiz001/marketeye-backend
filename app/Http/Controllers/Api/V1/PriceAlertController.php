@@ -64,6 +64,8 @@ class PriceAlertController extends Controller
             'target_price' => ['sometimes', 'numeric', 'min:1'],
             'condition' => ['sometimes', 'string', 'in:ABOVE,BELOW,above,below'],
             'is_active' => ['sometimes', 'boolean'],
+            'last_triggered_at' => ['sometimes', 'nullable', 'date'],
+            'last_known_price' => ['sometimes', 'nullable', 'numeric'],
         ]);
 
         if (isset($data['condition'])) {
@@ -74,6 +76,34 @@ class PriceAlertController extends Controller
         $alert->load(['product', 'market']);
 
         return $this->success(['alert' => $this->serialize($alert)], 'Alert updated.');
+    }
+
+    public function acknowledge(Request $request, int $id): JsonResponse
+    {
+        $alert = PriceAlert::query()
+            ->where('user_id', $request->user()->id)
+            ->find($id);
+
+        if (! $alert) {
+            return $this->failure('Alert not found.', [], 404);
+        }
+
+        $action = $request->input('action', 'acknowledge');
+
+        if ($action === 'deactivate') {
+            $alert->update([
+                'is_active' => false,
+                'last_triggered_at' => now(),
+            ]);
+        } else {
+            $alert->update([
+                'last_triggered_at' => now(),
+            ]);
+        }
+
+        $alert->load(['product', 'market']);
+
+        return $this->success(['alert' => $this->serialize($alert)], 'Alert acknowledged.');
     }
 
     public function destroy(Request $request, int $id): JsonResponse
