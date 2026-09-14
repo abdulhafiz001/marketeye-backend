@@ -69,8 +69,8 @@ class UserTrustScoreService
             default => 'Probationary',
         };
 
-        // Auto approval requirement: score >= 0.70 AND at least 3 historical approved submissions (or admin)
-        $canAutoApprove = $user->isAdminOrModerator() || ($trustScore >= 0.70 && $approvedCount >= 3);
+        // Auto approval requirement: non-banned active contributors (Waze immediate observation model)
+        $canAutoApprove = ! $user->isBanned();
 
         return [
             'score' => $trustScore,

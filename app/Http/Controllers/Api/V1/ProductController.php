@@ -66,7 +66,14 @@ class ProductController extends Controller
             ->where('product_id', $product->id)
             ->groupBy('market_id');
 
-        $authUser = $request->user('sanctum') ?? $request->user();
+        // Robust auth resolution for public/hybrid endpoint
+        $authUser = auth('sanctum')->user() ?? $request->user('sanctum') ?? $request->user();
+        if (! $authUser && $request->bearerToken()) {
+            $tokenModel = \Laravel\Sanctum\PersonalAccessToken::findToken($request->bearerToken());
+            if ($tokenModel && $tokenModel->tokenable instanceof \App\Models\User) {
+                $authUser = $tokenModel->tokenable;
+            }
+        }
 
         $markets = PriceSnapshot::query()
             ->joinSub($latestByMarket, 'latest', function ($join) {

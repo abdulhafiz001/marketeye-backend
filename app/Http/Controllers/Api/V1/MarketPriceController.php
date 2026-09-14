@@ -30,7 +30,15 @@ class MarketPriceController extends Controller
 
         $categorySlug = $request->query('category');
         $search = $request->query('search');
-        $authUser = $request->user('sanctum') ?? $request->user();
+
+        // Robust auth resolution for public/hybrid endpoint
+        $authUser = auth('sanctum')->user() ?? $request->user('sanctum') ?? $request->user();
+        if (! $authUser && $request->bearerToken()) {
+            $tokenModel = \Laravel\Sanctum\PersonalAccessToken::findToken($request->bearerToken());
+            if ($tokenModel && $tokenModel->tokenable instanceof \App\Models\User) {
+                $authUser = $tokenModel->tokenable;
+            }
+        }
 
         $latest = PriceSnapshot::query()
             ->select('product_id', DB::raw('MAX(snapshot_date) as md'))
