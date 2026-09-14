@@ -88,19 +88,20 @@ class DashboardSummaryController extends Controller
             }
         }
 
-        // 5. Recent Verified Activity Feed
+        // 5. Recent Verified Activity Feed (Capped at 7, latest on top)
         $recentActivity = PriceSubmission::query()
             ->with(['product', 'market'])
             ->where('status', PriceSubmission::STATUS_APPROVED)
             ->orderByDesc('submitted_at')
-            ->take(5)
+            ->orderByDesc('id')
+            ->take(7)
             ->get()
             ->map(fn ($sub) => [
                 'id' => $sub->id,
                 'product_name' => $sub->product?->name ?? 'Product',
                 'market_name' => $sub->market?->name ?? 'Market',
-                'price_per_unit' => (float) $sub->price_per_unit,
-                'unit' => $sub->quantity_unit ?? $sub->product?->unit,
+                'price_per_unit' => (float) ($sub->price_per_unit ?: $sub->price),
+                'unit' => $sub->quantity_unit ?? ($sub->product?->unit ?? 'unit'),
                 'is_geoverified' => (bool) $sub->is_geoverified,
                 'submitted_at' => $sub->submitted_at?->diffForHumans() ?? 'recently',
             ]);
