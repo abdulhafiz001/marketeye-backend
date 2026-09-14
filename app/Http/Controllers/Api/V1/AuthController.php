@@ -9,7 +9,6 @@ use App\Http\Requests\Api\V1\RegisterRequest;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
 use App\Mail\WelcomeMail;
 use App\Models\User;
-use App\Services\GoogleAuthService;
 use App\Services\PasswordResetService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -70,22 +69,6 @@ class AuthController extends Controller
             'token' => $token,
             'token_type' => 'Bearer',
         ]);
-    }
-
-    public function google(Request $request, GoogleAuthService $google): JsonResponse
-    {
-        $data = $request->validate([
-            'id_token' => ['required', 'string'],
-        ]);
-
-        $user = $google->authenticateWithIdToken($data['id_token']);
-        $token = $user->createToken('mobile-google')->plainTextToken;
-
-        return $this->success([
-            'user' => $this->userPayload($user),
-            'token' => $token,
-            'token_type' => 'Bearer',
-        ], 'Signed in with Google.');
     }
 
     public function forgotPassword(Request $request, PasswordResetService $reset): JsonResponse

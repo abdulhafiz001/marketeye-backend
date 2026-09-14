@@ -31,7 +31,6 @@ class User extends Authenticatable
         'role',
         'points',
         'wallet_balance',
-        'google_id',
         'verified',
         'banned_at',
         'submission_streak',
@@ -41,7 +40,6 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'google_id',
     ];
 
     protected function casts(): array

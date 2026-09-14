@@ -17,7 +17,6 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\CommunityPriceValidationController;
 use App\Http\Controllers\Api\V1\DashboardSummaryController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
-use App\Http\Controllers\Api\V1\GoogleSocialiteController;
 use App\Http\Controllers\Api\V1\InsightsController;
 use App\Http\Controllers\Api\V1\LeaderboardController;
 use App\Http\Controllers\Api\V1\MarketController;
@@ -55,9 +54,6 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('auth')->group(function (): void {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
-        Route::post('/google', [AuthController::class, 'google']);
-        Route::get('/google/redirect', [GoogleSocialiteController::class, 'redirect']);
-        Route::get('/google/callback', [GoogleSocialiteController::class, 'callback']);
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
         Route::post('/verify-reset-code', [AuthController::class, 'verifyResetCode'])->middleware('throttle:10,1');
         Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');

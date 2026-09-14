@@ -4,7 +4,7 @@ Laravel 12 API + Blade admin + public landing for **Market Eye** — crowd-verif
 
 ## Highlights
 
-- Google OAuth & mail setup (see `.env.example`)
+- Token authentication & mail setup (see `.env.example`)
 - Airtime wallet / claim flow
 - Public API + OpenAPI / Swagger / Postman (`/developers`, `/developers/swagger`)
 - Server-side price alerts via **FCM HTTP v1** (service account) + Expo fallback
