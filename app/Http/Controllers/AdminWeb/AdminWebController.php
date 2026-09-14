@@ -10,6 +10,7 @@ use App\Models\ApiKey;
 use App\Models\Category;
 use App\Models\ExternalPriceSeed;
 use App\Models\Market;
+use App\Models\PriceConfirmation;
 use App\Models\PriceSnapshot;
 use App\Models\PriceSubmission;
 use App\Models\Product;
@@ -149,6 +150,9 @@ class AdminWebController extends Controller
             ->distinct('user_id')
             ->count('user_id');
         $totalPointsCirculation = (int) User::query()->sum('points');
+        $communityConfirmations = PriceConfirmation::query()->where('action', PriceConfirmation::ACTION_CONFIRM)->count();
+        $communityDisputes = PriceConfirmation::query()->where('action', PriceConfirmation::ACTION_DISPUTE)->count();
+        $disputedSnapshotsCount = PriceSnapshot::query()->where('disputes_count', '>', 0)->count();
 
         // Price Alerts & Device Push Tokens
         $activePriceAlerts = \App\Models\PriceAlert::query()->where('is_active', true)->count();
@@ -258,6 +262,9 @@ class AdminWebController extends Controller
                 'total_liability' => $totalOutstandingLiability,
                 'active_api_keys' => $activeApiKeys,
                 'total_points' => $totalPointsCirculation,
+                'community_confirmations' => $communityConfirmations,
+                'community_disputes' => $communityDisputes,
+                'disputed_snapshots_count' => $disputedSnapshotsCount,
                 'most_active_market' => $mostActiveMarket?->name ?? '—',
                 'most_reported_product' => $mostReportedProduct?->name ?? '—',
             ],

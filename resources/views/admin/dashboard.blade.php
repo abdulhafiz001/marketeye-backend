@@ -254,6 +254,12 @@
         <div class="v" style="font-size: 22px;">{{ $stats['active_api_keys'] }}</div>
         <div class="sub">Active public consumers</div>
     </div>
+
+    <div class="card dash-card" style="padding: 14px;">
+        <div class="k">Community Validations</div>
+        <div class="v" style="font-size: 22px; color: #10b981;">{{ number_format($stats['community_confirmations']) }}</div>
+        <div class="sub">{{ number_format($stats['community_disputes']) }} disputes flagged</div>
+    </div>
 </div>
 
 <!-- Price Trend Highlight -->

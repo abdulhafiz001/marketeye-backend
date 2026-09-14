@@ -22,6 +22,9 @@ class PriceSnapshot extends Model
         'submission_count',
         'snapshot_date',
         'low_confidence',
+        'confidence_score',
+        'confirmations_count',
+        'disputes_count',
         'snapshot_source',
     ];
 
@@ -33,6 +36,9 @@ class PriceSnapshot extends Model
             'max_price' => 'decimal:2',
             'snapshot_date' => 'date',
             'low_confidence' => 'boolean',
+            'confidence_score' => 'integer',
+            'confirmations_count' => 'integer',
+            'disputes_count' => 'integer',
         ];
     }
 

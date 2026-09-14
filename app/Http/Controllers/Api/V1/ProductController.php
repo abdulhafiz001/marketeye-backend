@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Models\PriceConfirmation;
 use App\Models\PriceSnapshot;
 use App\Models\Product;
+use App\Services\ConfidenceEngineService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +16,10 @@ use Illuminate\Support\Facades\DB;
 class ProductController extends Controller
 {
     use ApiResponse;
+
+    public function __construct(
+        private readonly ConfidenceEngineService $confidenceEngine
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -60,6 +66,8 @@ class ProductController extends Controller
             ->where('product_id', $product->id)
             ->groupBy('market_id');
 
+        $authUser = $request->user('sanctum') ?? $request->user();
+
         $markets = PriceSnapshot::query()
             ->joinSub($latestByMarket, 'latest', function ($join) {
                 $join->on('price_snapshots.market_id', '=', 'latest.market_id')
@@ -69,19 +77,42 @@ class ProductController extends Controller
             ->with('market')
             ->orderBy('avg_price')
             ->get()
-            ->map(fn (PriceSnapshot $snapshot) => [
-                'market' => [
-                    'id' => $snapshot->market?->id,
-                    'name' => $snapshot->market?->name,
-                    'area' => $snapshot->market?->area,
-                ],
-                'avg_price' => (float) $snapshot->avg_price,
-                'min_price' => (float) $snapshot->min_price,
-                'max_price' => (float) $snapshot->max_price,
-                'snapshot_date' => $snapshot->snapshot_date?->toDateString(),
-                'as_of' => $snapshot->snapshot_date?->format('M j, Y'),
-                'submission_count' => (int) $snapshot->submission_count,
-            ])
+            ->map(function (PriceSnapshot $snapshot) use ($product, $authUser) {
+                $eval = $this->confidenceEngine->evaluate($product->id, (int) $snapshot->market_id, $snapshot);
+
+                $userAction = null;
+                if ($authUser) {
+                    $userAction = PriceConfirmation::query()
+                        ->where('user_id', $authUser->id)
+                        ->where('product_id', $product->id)
+                        ->where('market_id', (int) $snapshot->market_id)
+                        ->value('action');
+                }
+
+                return [
+                    'market' => [
+                        'id' => $snapshot->market?->id,
+                        'name' => $snapshot->market?->name,
+                        'area' => $snapshot->market?->area,
+                    ],
+                    'avg_price' => (float) $snapshot->avg_price,
+                    'min_price' => (float) $snapshot->min_price,
+                    'max_price' => (float) $snapshot->max_price,
+                    'snapshot_date' => $snapshot->snapshot_date?->toDateString(),
+                    'as_of' => $snapshot->snapshot_date?->format('M j, Y'),
+                    'submission_count' => (int) $snapshot->submission_count,
+                    'confidence_score' => $eval['score'],
+                    'confidence_level' => $eval['level'],
+                    'confirmations_count' => $eval['confirmations_count'],
+                    'disputes_count' => $eval['disputes_count'],
+                    'observations_count' => $eval['observations_count'],
+                    'observed_range' => $eval['observed_range'],
+                    'last_observed_ago' => $eval['last_observed_ago'],
+                    'verdict' => $eval['verdict'],
+                    'user_action' => $userAction,
+                    'signals' => $eval['signals'],
+                ];
+            })
             ->values();
 
         $historyQuery = PriceSnapshot::query()

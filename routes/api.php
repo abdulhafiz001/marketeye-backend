@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BasketOptimizerController;
 use App\Http\Controllers\Api\V1\BatchPriceSubmitController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\CommunityPriceValidationController;
 use App\Http\Controllers\Api\V1\DashboardSummaryController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
 use App\Http\Controllers\Api\V1\GoogleSocialiteController;
@@ -71,6 +72,8 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware(['auth:sanctum', 'not_banned'])->group(function (): void {
         Route::post('/prices/submit', [PriceSubmitController::class, 'store']);
         Route::post('/submissions/batch', [BatchPriceSubmitController::class, 'store']);
+        Route::post('/prices/validate', CommunityPriceValidationController::class);
+        Route::post('/prices/confirm', CommunityPriceValidationController::class);
         Route::get('/user/submissions', UserSubmissionController::class);
         Route::get('/user/leaderboard', LeaderboardController::class);
         Route::get('/user/market-watches', [UserMarketWatchController::class, 'index']);

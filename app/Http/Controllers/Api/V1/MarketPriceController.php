@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Market;
+use App\Models\PriceConfirmation;
 use App\Models\PriceSnapshot;
+use App\Services\ConfidenceEngineService;
 use App\Support\PriceSnapshotPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +16,10 @@ use Illuminate\Support\Facades\DB;
 class MarketPriceController extends Controller
 {
     use ApiResponse;
+
+    public function __construct(
+        private readonly ConfidenceEngineService $confidenceEngine
+    ) {}
 
     public function index(Request $request, int $id): JsonResponse
     {
@@ -24,6 +30,7 @@ class MarketPriceController extends Controller
 
         $categorySlug = $request->query('category');
         $search = $request->query('search');
+        $authUser = $request->user('sanctum') ?? $request->user();
 
         $latest = PriceSnapshot::query()
             ->select('product_id', DB::raw('MAX(snapshot_date) as md'))
@@ -46,9 +53,20 @@ class MarketPriceController extends Controller
             $query->whereHas('product', fn ($q) => $q->where('name', 'like', '%'.$search.'%'));
         }
 
-        $rows = $query->get()->map(function (PriceSnapshot $s) {
+        $rows = $query->get()->map(function (PriceSnapshot $s) use ($id, $authUser) {
             $p = $s->product;
             $c = $p?->category;
+
+            $eval = $this->confidenceEngine->evaluate((int) $p?->id, $id, $s);
+
+            $userAction = null;
+            if ($authUser && $p) {
+                $userAction = PriceConfirmation::query()
+                    ->where('user_id', $authUser->id)
+                    ->where('product_id', $p->id)
+                    ->where('market_id', $id)
+                    ->value('action');
+            }
 
             return [
                 'product' => [
@@ -68,9 +86,18 @@ class MarketPriceController extends Controller
                 'max_price' => (float) $s->max_price,
                 'submission_count' => (int) $s->submission_count,
                 'snapshot_date' => $s->snapshot_date->toDateString(),
-                'is_stale' => PriceSnapshotPresenter::isStale($s),
-                'low_confidence' => (bool) $s->low_confidence,
-                'confidence_level' => PriceSnapshotPresenter::confidenceLevel($s),
+                'is_stale' => $eval['level'] === 'stale' || PriceSnapshotPresenter::isStale($s),
+                'low_confidence' => in_array($eval['level'], ['low', 'needs_review', 'stale'], true),
+                'confidence_score' => $eval['score'],
+                'confidence_level' => $eval['level'],
+                'confirmations_count' => $eval['confirmations_count'],
+                'disputes_count' => $eval['disputes_count'],
+                'observations_count' => $eval['observations_count'],
+                'observed_range' => $eval['observed_range'],
+                'last_observed_ago' => $eval['last_observed_ago'],
+                'verdict' => $eval['verdict'],
+                'user_action' => $userAction,
+                'signals' => $eval['signals'],
             ];
         });
 
