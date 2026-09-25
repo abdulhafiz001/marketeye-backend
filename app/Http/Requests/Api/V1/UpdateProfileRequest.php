@@ -2,11 +2,21 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Support\AuthValidation;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateProfileRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'name' => trim((string) $this->input('name')),
+            'email' => AuthValidation::normalizeEmail($this->input('email')),
+            'phone' => AuthValidation::normalizePhone($this->input('phone')),
+        ]);
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -17,9 +27,14 @@ class UpdateProfileRequest extends FormRequest
         $userId = $this->user()?->id;
 
         return [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($userId)],
-            'phone' => ['nullable', 'string', 'max:32'],
+            'name' => AuthValidation::displayNameRules(),
+            'email' => [...AuthValidation::emailRules(), Rule::unique('users', 'email')->ignore($userId)],
+            'phone' => AuthValidation::phoneRules(),
         ];
+    }
+
+    public function messages(): array
+    {
+        return AuthValidation::messages();
     }
 }

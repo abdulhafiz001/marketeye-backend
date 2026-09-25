@@ -32,6 +32,7 @@ class User extends Authenticatable
         'points',
         'wallet_balance',
         'verified',
+        'email_verified_at',
         'banned_at',
         'submission_streak',
         'last_submission_date',
@@ -87,5 +88,18 @@ class User extends Authenticatable
     public function isBanned(): bool
     {
         return $this->banned_at !== null;
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return (bool) $this->verified || $this->email_verified_at !== null;
+    }
+
+    public function markEmailVerified(): void
+    {
+        $this->forceFill([
+            'verified' => true,
+            'email_verified_at' => $this->email_verified_at ?? now(),
+        ])->save();
     }
 }

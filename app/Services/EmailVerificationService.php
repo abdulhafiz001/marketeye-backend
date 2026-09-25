@@ -2,59 +2,64 @@
 
 namespace App\Services;
 
-use App\Mail\PasswordOtpMail;
+use App\Mail\EmailVerificationOtpMail;
 use App\Models\PasswordOtp;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
-class PasswordResetService
+class EmailVerificationService
 {
     public const OTP_TTL_MINUTES = 15;
 
     public const MAX_ATTEMPTS = 5;
 
-    /**
-     * @return array{sent: bool}
-     */
-    public function sendOtp(string $email): array
+    public function sendOtp(User $user): void
+    {
+        if ($user->isEmailVerified()) {
+            throw ValidationException::withMessages([
+                'email' => 'This email is already verified. You can sign in.',
+            ]);
+        }
+
+        $email = strtolower(trim((string) $user->email));
+        $code = (string) random_int(100000, 999999);
+
+        PasswordOtp::query()
+            ->where('email', $email)
+            ->where('purpose', PasswordOtp::PURPOSE_EMAIL_VERIFY)
+            ->delete();
+
+        PasswordOtp::query()->create([
+            'email' => $email,
+            'purpose' => PasswordOtp::PURPOSE_EMAIL_VERIFY,
+            'code' => Hash::make($code),
+            'expires_at' => now()->addMinutes(self::OTP_TTL_MINUTES),
+            'attempts' => 0,
+        ]);
+
+        Mail::to($email)->send(new EmailVerificationOtpMail($code, (string) ($user->name ?: '')));
+    }
+
+    public function verify(string $email, string $code): User
     {
         $email = strtolower(trim($email));
-        $user = User::query()->where('email', $email)->first();
 
+        $user = User::query()->where('email', $email)->first();
         if (! $user) {
             throw ValidationException::withMessages([
                 'email' => 'No account found with this email address.',
             ]);
         }
 
-        $code = (string) random_int(100000, 999999);
-
-        PasswordOtp::query()
-            ->where('email', $email)
-            ->where('purpose', PasswordOtp::PURPOSE_PASSWORD_RESET)
-            ->delete();
-        PasswordOtp::query()->create([
-            'email' => $email,
-            'purpose' => PasswordOtp::PURPOSE_PASSWORD_RESET,
-            'code' => Hash::make($code),
-            'expires_at' => now()->addMinutes(self::OTP_TTL_MINUTES),
-            'attempts' => 0,
-        ]);
-
-        Mail::to($email)->send(new PasswordOtpMail($code));
-
-        return ['sent' => true];
-    }
-
-    public function verifyCode(string $email, string $code): bool
-    {
-        $email = strtolower(trim($email));
+        if ($user->isEmailVerified()) {
+            return $user;
+        }
 
         $otp = PasswordOtp::query()
             ->where('email', $email)
-            ->where('purpose', PasswordOtp::PURPOSE_PASSWORD_RESET)
+            ->where('purpose', PasswordOtp::PURPOSE_EMAIL_VERIFY)
             ->orderByDesc('id')
             ->first();
 
@@ -76,27 +81,12 @@ class PasswordResetService
             throw ValidationException::withMessages(['code' => 'Invalid or expired code.']);
         }
 
-        return true;
-    }
-
-    public function resetPassword(string $email, string $code, string $password): User
-    {
-        $email = strtolower(trim($email));
-        $this->verifyCode($email, $code);
-
-        $user = User::query()->where('email', $email)->first();
-        if (! $user) {
-            throw ValidationException::withMessages(['email' => 'Account not found.']);
-        }
-
-        $user->password = $password;
-        $user->save();
-
+        $user->markEmailVerified();
         PasswordOtp::query()
             ->where('email', $email)
-            ->where('purpose', PasswordOtp::PURPOSE_PASSWORD_RESET)
+            ->where('purpose', PasswordOtp::PURPOSE_EMAIL_VERIFY)
             ->delete();
 
-        return $user;
+        return $user->fresh();
     }
 }

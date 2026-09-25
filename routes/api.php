@@ -54,6 +54,8 @@ Route::prefix('v1')->group(function (): void {
     Route::prefix('auth')->group(function (): void {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:10,1');
+        Route::post('/resend-verification', [AuthController::class, 'resendVerification'])->middleware('throttle:5,1');
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
         Route::post('/verify-reset-code', [AuthController::class, 'verifyResetCode'])->middleware('throttle:10,1');
         Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
