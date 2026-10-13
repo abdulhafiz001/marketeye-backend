@@ -18,6 +18,23 @@ class WalletController extends Controller
         $user = $request->user();
         $balance = (int) $user->wallet_balance;
         $min = AirtimeClaim::MIN_CLAIM_AMOUNT;
+        $monthlyLimit = AirtimeClaim::MONTHLY_CLAIM_LIMIT;
+
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+        $monthlyClaimed = (int) AirtimeClaim::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', [AirtimeClaim::STATUS_PENDING, AirtimeClaim::STATUS_PAID])
+            ->whereBetween('claimed_at', [$monthStart, $monthEnd])
+            ->sum('amount');
+
+        $hasReachedMonthlyLimit = $monthlyClaimed >= $monthlyLimit;
+        $hasPending = AirtimeClaim::query()
+            ->where('user_id', $user->id)
+            ->where('status', AirtimeClaim::STATUS_PENDING)
+            ->exists();
+
+        $canClaim = $balance >= $min && ! $hasReachedMonthlyLimit && ! $hasPending;
 
         $claims = AirtimeClaim::query()
             ->where('user_id', $user->id)
@@ -38,7 +55,13 @@ class WalletController extends Controller
             'wallet' => [
                 'balance' => $balance,
                 'min_claim' => $min,
-                'can_claim' => $balance >= $min,
+                'claim_amount' => AirtimeClaim::CLAIM_AMOUNT,
+                'monthly_limit' => $monthlyLimit,
+                'monthly_claimed' => $monthlyClaimed,
+                'monthly_remaining' => max(0, $monthlyLimit - $monthlyClaimed),
+                'has_reached_monthly_limit' => $hasReachedMonthlyLimit,
+                'has_pending' => $hasPending,
+                'can_claim' => $canClaim,
                 'progress' => min(100, (int) round(($balance / $min) * 100)),
                 'remaining_to_claim' => max(0, $min - $balance),
             ],

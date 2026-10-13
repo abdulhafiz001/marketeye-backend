@@ -15,6 +15,10 @@ class AirtimeClaim extends Model
 
     public const MIN_CLAIM_AMOUNT = 200;
 
+    public const MONTHLY_CLAIM_LIMIT = 200;
+
+    public const CLAIM_AMOUNT = 200;
+
     protected $fillable = [
         'user_id',
         'amount',

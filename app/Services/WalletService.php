@@ -36,7 +36,8 @@ class WalletService
     }
 
     /**
-     * Claim the full wallet balance (must be >= 200). Balance resets to 0 until reject refunds.
+     * Claim ₦200 airtime (wallet balance must be >= 200).
+     * Monthly limit is ₦200 per calendar month.
      */
     public function claim(User $user, string $phone): AirtimeClaim
     {
@@ -44,9 +45,9 @@ class WalletService
             $locked = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $balance = (int) $locked->wallet_balance;
 
-            if ($balance < AirtimeClaim::MIN_CLAIM_AMOUNT) {
+            if ($balance < AirtimeClaim::CLAIM_AMOUNT) {
                 throw ValidationException::withMessages([
-                    'wallet' => 'You need at least ₦'.AirtimeClaim::MIN_CLAIM_AMOUNT.' to claim airtime.',
+                    'wallet' => 'You need at least ₦'.AirtimeClaim::CLAIM_AMOUNT.' to claim airtime.',
                 ]);
             }
 
@@ -57,12 +58,32 @@ class WalletService
 
             if ($pending) {
                 throw ValidationException::withMessages([
-                    'wallet' => 'You already have a pending airtime claim.',
+                    'wallet' => 'You already have a pending airtime claim. Please wait for it to be processed.',
                 ]);
             }
 
-            $amount = $balance;
-            $locked->wallet_balance = 0;
+            $monthStart = now()->startOfMonth();
+            $monthEnd = now()->endOfMonth();
+            $monthlyClaimed = (int) AirtimeClaim::query()
+                ->where('user_id', $locked->id)
+                ->whereIn('status', [AirtimeClaim::STATUS_PENDING, AirtimeClaim::STATUS_PAID])
+                ->whereBetween('claimed_at', [$monthStart, $monthEnd])
+                ->sum('amount');
+
+            if ($monthlyClaimed >= AirtimeClaim::MONTHLY_CLAIM_LIMIT) {
+                throw ValidationException::withMessages([
+                    'wallet' => 'Monthly limit reached. You can only claim up to ₦'.AirtimeClaim::MONTHLY_CLAIM_LIMIT.' of airtime per month.',
+                ]);
+            }
+
+            if ($monthlyClaimed + AirtimeClaim::CLAIM_AMOUNT > AirtimeClaim::MONTHLY_CLAIM_LIMIT) {
+                throw ValidationException::withMessages([
+                    'wallet' => 'This claim exceeds your monthly limit of ₦'.AirtimeClaim::MONTHLY_CLAIM_LIMIT.'.',
+                ]);
+            }
+
+            $amount = AirtimeClaim::CLAIM_AMOUNT;
+            $locked->wallet_balance -= $amount;
             $locked->save();
 
             $claim = AirtimeClaim::query()->create([
