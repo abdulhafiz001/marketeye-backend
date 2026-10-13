@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ChangePasswordRequest;
 use App\Http\Requests\Api\V1\LoginRequest;
 use App\Http\Requests\Api\V1\RegisterRequest;
 use App\Http\Requests\Api\V1\UpdateProfileRequest;
@@ -16,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -215,6 +217,22 @@ class AuthController extends Controller
         return $this->success([
             'user' => $this->userPayload($user),
         ], 'Profile updated.');
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->password || ! Hash::check($request->string('current_password')->toString(), $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Current password is incorrect.'],
+            ]);
+        }
+
+        $user->password = $request->string('password')->toString();
+        $user->save();
+
+        return $this->success(null, 'Password updated.');
     }
 
     private function userPayload(User $user): array

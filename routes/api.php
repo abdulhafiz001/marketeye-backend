@@ -64,6 +64,7 @@ Route::prefix('v1')->group(function (): void {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'me']);
             Route::patch('/me', [AuthController::class, 'updateProfile']);
+            Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:5,1');
         });
     });
 
