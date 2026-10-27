@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Admin\ActivityLogController;
 use App\Http\Controllers\Api\V1\Admin\CategoryManageController;
 use App\Http\Controllers\Api\V1\Admin\ClaimManageController;
+use App\Http\Controllers\Api\V1\Admin\CatalogSuggestionManageController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\ExternalSeedController;
 use App\Http\Controllers\Api\V1\Admin\ManualPriceController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BasketOptimizerController;
 use App\Http\Controllers\Api\V1\BatchPriceSubmitController;
 use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\CatalogSuggestionController;
 use App\Http\Controllers\Api\V1\CommunityPriceValidationController;
 use App\Http\Controllers\Api\V1\DashboardSummaryController;
 use App\Http\Controllers\Api\V1\DeviceTokenController;
@@ -70,6 +72,7 @@ Route::prefix('v1')->group(function (): void {
 
     Route::middleware(['auth:sanctum', 'not_banned'])->group(function (): void {
         Route::post('/prices/submit', [PriceSubmitController::class, 'store']);
+        Route::post('/catalog/suggestions', [CatalogSuggestionController::class, 'store'])->middleware('throttle:5,10');
         Route::post('/submissions/batch', [BatchPriceSubmitController::class, 'store']);
         Route::post('/prices/validate', CommunityPriceValidationController::class);
         Route::post('/prices/confirm', CommunityPriceValidationController::class);
@@ -110,6 +113,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('/products', [ProductManageController::class, 'store']);
         Route::put('/products/{id}', [ProductManageController::class, 'update']);
         Route::delete('/products/{id}', [ProductManageController::class, 'destroy']);
+
+        Route::get('/catalog/suggestions', [CatalogSuggestionManageController::class, 'index']);
+        Route::post('/catalog/suggestions/{id}/approve', [CatalogSuggestionManageController::class, 'approve']);
+        Route::post('/catalog/suggestions/{id}/reject', [CatalogSuggestionManageController::class, 'reject']);
 
         Route::get('/categories', [CategoryManageController::class, 'index']);
         Route::post('/categories', [CategoryManageController::class, 'store']);

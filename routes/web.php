@@ -53,6 +53,7 @@ Route::post('/admin/setup', [AdminWebController::class, 'setup'])
 Route::middleware(['web', 'auth:admin', 'web_admin'])->group(function (): void {
     Route::get('/admin', [AdminWebController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/admin/products', [AdminWebController::class, 'products'])->name('admin.products.index');
+    Route::get('/admin/catalog-suggestions', [AdminWebController::class, 'catalogSuggestions'])->name('admin.catalog-suggestions.index');
     Route::get('/admin/categories', [AdminWebController::class, 'categories'])->name('admin.categories.index');
     Route::get('/admin/markets', [AdminWebController::class, 'markets'])->name('admin.markets.index');
     Route::get('/admin/users', [AdminWebController::class, 'users'])->name('admin.users.index');
@@ -73,6 +74,8 @@ Route::middleware(['web', 'auth:admin', 'web_admin'])->group(function (): void {
     Route::post('/admin/markets/{id}', [AdminWebController::class, 'updateMarket'])->name('admin.markets.update');
     Route::post('/admin/products', [AdminWebController::class, 'storeProduct'])->name('admin.products.store');
     Route::post('/admin/products/{id}', [AdminWebController::class, 'updateProduct'])->name('admin.products.update');
+    Route::post('/admin/catalog-suggestions/{id}/approve', [AdminWebController::class, 'approveCatalogSuggestion'])->name('admin.catalog-suggestions.approve');
+    Route::post('/admin/catalog-suggestions/{id}/reject', [AdminWebController::class, 'rejectCatalogSuggestion'])->name('admin.catalog-suggestions.reject');
     Route::post('/admin/categories', [AdminWebController::class, 'storeCategory'])->name('admin.categories.store');
     Route::post('/admin/categories/{id}', [AdminWebController::class, 'updateCategory'])->name('admin.categories.update');
     Route::post('/admin/categories/{id}/delete', [AdminWebController::class, 'destroyCategory'])->name('admin.categories.destroy');

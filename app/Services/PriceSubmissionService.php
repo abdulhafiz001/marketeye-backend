@@ -6,6 +6,7 @@ use App\Models\Market;
 use App\Models\PriceSubmission;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Validation\ValidationException;
 
 class PriceSubmissionService
 {
@@ -14,6 +15,7 @@ class PriceSubmissionService
         private readonly WalletService $wallet,
         private readonly AnomalyDetectionService $anomalyDetection,
         private readonly UserTrustScoreService $trustScores,
+        private readonly MarketProximityService $marketProximity,
     ) {}
 
     /**
@@ -45,21 +47,23 @@ class PriceSubmissionService
         $product = Product::query()->find($productId);
         $market = Market::query()->find($marketId);
 
+        if (! $product || ! $product->is_active) {
+            throw ValidationException::withMessages(['product_id' => ['This product is not available for price reporting.']]);
+        }
+        if (! $market || ! $market->is_active) {
+            throw ValidationException::withMessages(['market_id' => ['This market is not available for price reporting.']]);
+        }
+
         $quantityValue = max((float) ($input['quantity_value'] ?? 1), 0.001);
         $quantityUnit = trim((string) ($input['quantity_unit'] ?? '')) ?: $product?->unit;
         $price = (float) $input['price'];
         $pricePerUnit = round($price / $quantityValue, 2);
 
-        // 1. Geoverification check using Haversine formula if coordinates provided
+        // A price can only be reported while physically near its selected market.
         $userLat = isset($input['latitude']) ? (float) $input['latitude'] : null;
         $userLng = isset($input['longitude']) ? (float) $input['longitude'] : null;
-        $isGeoverified = (bool) ($input['is_geoverified'] ?? false);
-
-        if ($userLat !== null && $userLng !== null && $market && $market->latitude && $market->longitude) {
-            $distanceKm = $this->haversineDistanceKm($userLat, $userLng, (float) $market->latitude, (float) $market->longitude);
-            // Within 0.75 km (750 meters) of market center
-            $isGeoverified = ($distanceKm <= 0.75);
-        }
+        $distanceKm = $this->marketProximity->assertWithinMarket($market, $userLat, $userLng);
+        $isGeoverified = true;
 
         // 2. Statistical Anomaly & Outlier Filter (IQR)
         $anomalyCheck = $this->anomalyDetection->evaluateSubmission($pricePerUnit, $productId, $marketId);
@@ -81,6 +85,7 @@ class PriceSubmissionService
             'quantity_unit' => $quantityUnit,
             'price_per_unit' => $pricePerUnit,
             'is_geoverified' => $isGeoverified,
+            'distance_km' => $distanceKm,
             'latitude' => $userLat,
             'longitude' => $userLng,
             'is_outlier' => $isOutlier,
@@ -117,18 +122,4 @@ class PriceSubmissionService
         ];
     }
 
-    private function haversineDistanceKm(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $earthRadius = 6371;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-
-        $a = sin($dLat / 2) * sin($dLat / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($dLon / 2) * sin($dLon / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadius * $c;
-    }
 }

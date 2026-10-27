@@ -194,6 +194,7 @@
         <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
         <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">Manage categories</a>
         <a href="{{ route('admin.products.index') }}" class="{{ request()->routeIs('admin.products.index') ? 'active' : '' }}">Manage products</a>
+        <a href="{{ route('admin.catalog-suggestions.index') }}" class="{{ request()->routeIs('admin.catalog-suggestions.*') ? 'active' : '' }}">Product suggestions</a>
         <a href="{{ route('admin.markets.index') }}" class="{{ request()->routeIs('admin.markets.index') ? 'active' : '' }}">Manage markets</a>
         <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.index') ? 'active' : '' }}">Manage users</a>
         <a href="{{ route('admin.submissions.index') }}" class="{{ request()->routeIs('admin.submissions.index') ? 'active' : '' }}">Manage submissions</a>

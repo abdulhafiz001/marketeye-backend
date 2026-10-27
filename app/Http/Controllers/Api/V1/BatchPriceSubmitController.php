@@ -24,6 +24,8 @@ class BatchPriceSubmitController extends Controller
             'submissions.*.quantity_unit' => ['nullable', 'string', 'max:64'],
             'submissions.*.notes' => ['nullable', 'string', 'max:2000'],
             'submissions.*.client_id' => ['nullable', 'string', 'max:64'],
+            'submissions.*.latitude' => ['required', 'numeric', 'between:-90,90'],
+            'submissions.*.longitude' => ['required', 'numeric', 'between:-180,180'],
         ]);
 
         $user = $request->user();
@@ -64,6 +66,14 @@ class BatchPriceSubmitController extends Controller
                         'auto_approved' => $created['auto_approved'],
                         'points_awarded' => $created['points_awarded'],
                     ],
+                ];
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                $failed++;
+                $results[] = [
+                    'index' => $index,
+                    'client_id' => $row['client_id'] ?? null,
+                    'ok' => false,
+                    'message' => collect($e->errors())->flatten()->first(),
                 ];
             } catch (\Throwable $e) {
                 $failed++;

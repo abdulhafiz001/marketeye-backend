@@ -27,6 +27,7 @@ class PriceSubmitController extends Controller
                 'wallet_awarded' => $created['auto_approved'] ? 1 : 0,
                 'auto_approved' => $created['auto_approved'],
                 'is_geoverified' => (bool) $created['is_geoverified'],
+                'distance_km' => (float) $created['distance_km'],
                 'is_outlier' => (bool) $created['is_outlier'],
                 'outlier_reason' => $created['outlier_reason'],
                 'trust_score' => (float) $created['trust_score'],
