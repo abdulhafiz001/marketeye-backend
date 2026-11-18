@@ -662,7 +662,7 @@ class AdminWebController extends Controller
             'state' => ['nullable', 'string', 'max:64'],
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],
-            'geofence_radius_m' => ['nullable', 'integer', 'min:100', 'max:5000'],
+            'geofence_radius_m' => ['nullable', 'integer', 'min:100', 'max:100000'],
             'description' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
         ], [
@@ -695,7 +695,7 @@ class AdminWebController extends Controller
             'state' => ['nullable', 'string', 'max:64'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
-            'geofence_radius_m' => ['nullable', 'integer', 'min:100', 'max:5000'],
+            'geofence_radius_m' => ['nullable', 'integer', 'min:100', 'max:100000'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 

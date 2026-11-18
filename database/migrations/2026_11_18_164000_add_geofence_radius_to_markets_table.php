@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('markets', function (Blueprint $table) {
             if (! Schema::hasColumn('markets', 'geofence_radius_m')) {
-                $table->unsignedInteger('geofence_radius_m')->default(750)->after('longitude');
+                $table->unsignedInteger('geofence_radius_m')->default(10000)->after('longitude');
             }
         });
     }

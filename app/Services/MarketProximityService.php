@@ -7,13 +7,13 @@ use Illuminate\Validation\ValidationException;
 
 class MarketProximityService
 {
-    public const MAX_DISTANCE_KM = 0.75;
+    public const MAX_DISTANCE_KM = 10.0;
 
     public function assertWithinMarket(Market $market, mixed $latitude, mixed $longitude): float
     {
         if ($latitude === null || $longitude === null) {
             throw ValidationException::withMessages([
-                'location' => ["Allow location access and stand near {$market->name} to submit prices for it."],
+                'location' => ["Allow location access and be within {$market->geofenceRadiusLabel()} of {$market->name} to submit prices for it."],
             ]);
         }
 
@@ -24,12 +24,12 @@ class MarketProximityService
         }
 
         $maxDistanceKm = $market->geofenceRadiusKm();
-        $radiusMeters = $market->geofenceRadiusMeters();
+        $radiusLabel = $market->geofenceRadiusLabel();
         $distance = $this->distanceKm((float) $latitude, (float) $longitude, (float) $market->latitude, (float) $market->longitude);
         if ($distance > $maxDistanceKm) {
             $distanceLabel = $distance < 10 ? number_format($distance, 1) : number_format($distance, 0);
             throw ValidationException::withMessages([
-                'market_id' => ["You are {$distanceLabel} km from {$market->name}. You must be within {$radiusMeters} m of this market to submit a price for it."],
+                'market_id' => ["You are {$distanceLabel} km from {$market->name}. You must be within {$radiusLabel} of this market to submit a price for it."],
             ]);
         }
 

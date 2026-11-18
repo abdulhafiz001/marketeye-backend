@@ -49,8 +49,11 @@
             display: inline-flex;
             align-items: center;
             padding: 9px 0;
-            animation: ticker 38s linear infinite;
+            animation: ticker var(--ticker-duration, 95s) linear infinite;
             will-change: transform;
+        }
+        .ticker-band:hover .ticker-track {
+            animation-play-state: paused;
         }
         .ticker-item {
             display: inline-flex;
@@ -374,11 +377,12 @@
                 ];
             });
         });
+        $tickerDurationSeconds = max(90, $tickerItems->count() * 7);
     @endphp
 
     @if ($tickerItems->isNotEmpty())
         <div class="ticker-band">
-            <div class="ticker-track">
+            <div class="ticker-track" style="--ticker-duration: {{ $tickerDurationSeconds }}s;">
                 @for ($i = 0; $i < 2; $i++)
                     @foreach ($tickerItems as $item)
                         <span class="ticker-item mono">
@@ -655,13 +659,18 @@
 
         document.querySelectorAll('[data-carousel]').forEach((el) => {
             let dir = 1;
+            let paused = false;
+            el.addEventListener('mouseenter', () => { paused = true; });
+            el.addEventListener('mouseleave', () => { paused = false; });
+            el.addEventListener('touchstart', () => { paused = true; }, { passive: true });
+            el.addEventListener('touchend', () => { paused = false; }, { passive: true });
             setInterval(() => {
-                if (el.scrollWidth <= el.clientWidth + 8) return;
+                if (paused || el.scrollWidth <= el.clientWidth + 8) return;
                 const max = el.scrollWidth - el.clientWidth;
                 const next = el.scrollLeft + dir * 220;
                 if (next >= max || next <= 0) dir *= -1;
                 el.scrollTo({ left: el.scrollLeft + dir * 220, behavior: 'smooth' });
-            }, 3200);
+            }, 6000);
         });
     </script>
 </body>

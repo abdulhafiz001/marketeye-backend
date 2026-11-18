@@ -173,7 +173,7 @@
     @if ($unverifiedCount > 0)
         <span class="pill status-unverified">⚠ {{ $unverifiedCount }} Missing Map Pin (Cannot be selected in app yet)</span>
     @endif
-    <span class="pill">Default Geofence: 750 m</span>
+    <span class="pill">Default Geofence: 10 km (10,000 m)</span>
 </div>
 
 <div class="markets-grid" id="map-workspace">
@@ -219,18 +219,19 @@
                 </div>
                 <div>
                     <label for="new-radius">Geofence Radius (m)</label>
-                    <input id="new-radius" name="geofence_radius_m" type="number" min="100" max="5000" step="50" value="{{ old('geofence_radius_m', 750) }}">
+                    <input id="new-radius" name="geofence_radius_m" type="number" min="100" max="100000" step="100" value="{{ old('geofence_radius_m', 10000) }}">
                 </div>
             </div>
 
             <div style="margin-bottom:14px;">
                 <label>Quick Radius Presets</label>
                 <div class="radius-presets">
-                    <button type="button" class="chip-btn" data-radius="400">400 m (Small)</button>
-                    <button type="button" class="chip-btn active" data-radius="750">750 m (Standard)</button>
-                    <button type="button" class="chip-btn" data-radius="1000">1,000 m (1 km)</button>
-                    <button type="button" class="chip-btn" data-radius="1500">1,500 m (Large complex)</button>
-                    <button type="button" class="chip-btn" data-radius="2500">2,500 m (Regional)</button>
+                    <button type="button" class="chip-btn" data-radius="750">750 m (On-site)</button>
+                    <button type="button" class="chip-btn" data-radius="2500">2.5 km (2,500 m)</button>
+                    <button type="button" class="chip-btn" data-radius="5000">5 km (5,000 m)</button>
+                    <button type="button" class="chip-btn active" data-radius="10000">10 km (10,000 m — Default)</button>
+                    <button type="button" class="chip-btn" data-radius="25000">25 km (25,000 m)</button>
+                    <button type="button" class="chip-btn" data-radius="50000">50 km (City-wide)</button>
                 </div>
             </div>
 
@@ -353,14 +354,14 @@
                                 placeholder="7.443300"
                             >
                         </td>
-                        <td style="min-width:96px;">
+                        <td style="min-width:105px;">
                             <input
                                 name="geofence_radius_m"
                                 id="row-radius-{{ $market->id }}"
                                 type="number"
                                 min="100"
-                                max="5000"
-                                step="50"
+                                max="100000"
+                                step="100"
                                 value="{{ $radiusM }}"
                             >
                         </td>
@@ -446,9 +447,9 @@
     function getCurrentRadius() {
         if (activeRowId !== null) {
             const el = document.getElementById('row-radius-' + activeRowId);
-            return Math.max(100, Math.min(5000, parseInt(el?.value || '750', 10) || 750));
+            return Math.max(100, Math.min(100000, parseInt(el?.value || '10000', 10) || 10000));
         }
-        return Math.max(100, Math.min(5000, parseInt(newRadiusInput.value || '750', 10) || 750));
+        return Math.max(100, Math.min(100000, parseInt(newRadiusInput.value || '10000', 10) || 10000));
     }
 
     function setActivePin(lat, lng, pan = true) {
@@ -480,7 +481,8 @@
         }
 
         if (pan) {
-            map.setView([cleanLat, cleanLng], Math.max(map.getZoom(), 15));
+            const targetZoom = radius >= 20000 ? 10 : (radius >= 8000 ? 11 : (radius >= 2500 ? 13 : 15));
+            map.setView([cleanLat, cleanLng], targetZoom);
         }
 
         if (activeRowId !== null) {
@@ -505,7 +507,7 @@
     }
 
     function updateCircleRadiusOnly(radiusMeters) {
-        const r = Math.max(100, Math.min(5000, parseInt(radiusMeters, 10) || 750));
+        const r = Math.max(100, Math.min(100000, parseInt(radiusMeters, 10) || 10000));
         if (activeCircle) {
             activeCircle.setRadius(r);
         }
@@ -625,7 +627,7 @@
         const stateVal = document.getElementById('row-state-' + marketId)?.value || '';
         const latVal = document.getElementById('row-lat-' + marketId)?.value || '';
         const lngVal = document.getElementById('row-lng-' + marketId)?.value || '';
-        const radiusVal = document.getElementById('row-radius-' + marketId)?.value || '750';
+        const radiusVal = document.getElementById('row-radius-' + marketId)?.value || '10000';
 
         modeBanner.classList.add('is-editing');
         modeText.innerHTML = `✏️ Adjusting existing market: <strong>${nameVal}</strong> — click map or drag pin, then click Save`;
@@ -669,7 +671,7 @@
         inp.addEventListener('input', () => {
             const rowId = parseInt(inp.id.replace('row-radius-', ''), 10);
             if (activeRowId === rowId && activeCircle) {
-                activeCircle.setRadius(Math.max(100, Math.min(5000, parseInt(inp.value, 10) || 750)));
+                activeCircle.setRadius(Math.max(100, Math.min(100000, parseInt(inp.value, 10) || 10000)));
             }
         });
     });

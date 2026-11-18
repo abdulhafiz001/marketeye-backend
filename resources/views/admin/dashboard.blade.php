@@ -207,7 +207,7 @@
             <span style="color: #22c55e;">📍 On-Site</span>
         </div>
         <div class="v">{{ number_format($stats['geoverified_count']) }}</div>
-        <div class="sub">{{ $stats['geoverified_rate'] }}% submitted within 750m of market</div>
+        <div class="sub">{{ $stats['geoverified_rate'] }}% submitted within market geofence (10km default)</div>
     </div>
 
     <div class="card dash-card">
