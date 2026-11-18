@@ -45,7 +45,7 @@ class CommunityPriceValidationController extends Controller
         $userLng = isset($data['longitude']) ? (float) $data['longitude'] : null;
         if ($userLat !== null && $userLng !== null && $market && $market->latitude && $market->longitude) {
             $dist = $this->haversineKm($userLat, $userLng, (float) $market->latitude, (float) $market->longitude);
-            $isGeoverified = ($dist <= 0.75); // Within 750m
+            $isGeoverified = ($dist <= $market->geofenceRadiusKm());
         }
 
         // Upsert user confirmation / dispute

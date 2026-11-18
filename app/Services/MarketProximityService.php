@@ -23,11 +23,13 @@ class MarketProximityService
             ]);
         }
 
+        $maxDistanceKm = $market->geofenceRadiusKm();
+        $radiusMeters = $market->geofenceRadiusMeters();
         $distance = $this->distanceKm((float) $latitude, (float) $longitude, (float) $market->latitude, (float) $market->longitude);
-        if ($distance > self::MAX_DISTANCE_KM) {
+        if ($distance > $maxDistanceKm) {
             $distanceLabel = $distance < 10 ? number_format($distance, 1) : number_format($distance, 0);
             throw ValidationException::withMessages([
-                'market_id' => ["You are {$distanceLabel} km from {$market->name}. You must be within 750 m of this market to submit a price for it."],
+                'market_id' => ["You are {$distanceLabel} km from {$market->name}. You must be within {$radiusMeters} m of this market to submit a price for it."],
             ]);
         }
 

@@ -117,6 +117,7 @@ class MarketPriceController extends Controller
                 'description' => $market->description,
                 'lat' => $market->latitude,
                 'lng' => $market->longitude,
+                'geofence_radius_m' => $market->geofenceRadiusMeters(),
             ],
             'prices' => $rows,
         ]);

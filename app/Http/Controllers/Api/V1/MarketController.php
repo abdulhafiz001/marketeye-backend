@@ -25,6 +25,7 @@ class MarketController extends Controller
                 'area' => $m->area,
                 'lat' => $m->latitude,
                 'lng' => $m->longitude,
+                'geofence_radius_m' => $m->geofenceRadiusMeters(),
             ]);
 
         $lastUpdate = PriceSnapshot::query()->max('snapshot_date');

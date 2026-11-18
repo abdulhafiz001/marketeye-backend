@@ -660,20 +660,29 @@ class AdminWebController extends Controller
             'area' => ['nullable', 'string', 'max:255'],
             'city' => ['nullable', 'string', 'max:255'],
             'state' => ['nullable', 'string', 'max:64'],
-            'latitude' => ['nullable', 'numeric'],
-            'longitude' => ['nullable', 'numeric'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'geofence_radius_m' => ['nullable', 'integer', 'min:100', 'max:5000'],
             'description' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
+        ], [
+            'latitude.required' => 'Please pinpoint the market location on the map before saving.',
+            'longitude.required' => 'Please pinpoint the market location on the map before saving.',
         ]);
 
-        $data['city'] = $data['city'] ?? 'Abuja';
-        $data['state'] = $data['state'] ?? 'FCT';
+        $data['city'] = trim((string) ($data['city'] ?? '')) ?: 'Abuja';
+        $data['state'] = trim((string) ($data['state'] ?? '')) ?: 'FCT';
+        $data['geofence_radius_m'] = (int) ($data['geofence_radius_m'] ?? Market::DEFAULT_GEOFENCE_RADIUS_M);
         $data['is_active'] = $request->boolean('is_active', true);
 
         $market = Market::query()->create($data);
-        $logger->log(Auth::guard('admin')->user(), 'Created market', Market::class, $market->id);
+        $logger->log(Auth::guard('admin')->user(), 'Created market', Market::class, $market->id, [
+            'latitude' => $market->latitude,
+            'longitude' => $market->longitude,
+            'geofence_radius_m' => $market->geofence_radius_m,
+        ]);
 
-        return back()->with('status', 'Market saved.');
+        return back()->with('status', "Market \"{$market->name}\" saved with verified map location.");
     }
 
     public function updateMarket(int $id, Request $request, AdminActivityLogger $logger)
@@ -682,17 +691,31 @@ class AdminWebController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'area' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'state' => ['nullable', 'string', 'max:64'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'geofence_radius_m' => ['nullable', 'integer', 'min:100', 'max:5000'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         $market->update([
             'name' => $data['name'],
             'area' => $data['area'] ?? null,
+            'city' => trim((string) ($data['city'] ?? '')) ?: ($market->city ?: 'Abuja'),
+            'state' => trim((string) ($data['state'] ?? '')) ?: ($market->state ?: 'FCT'),
+            'latitude' => $request->filled('latitude') ? (float) $data['latitude'] : null,
+            'longitude' => $request->filled('longitude') ? (float) $data['longitude'] : null,
+            'geofence_radius_m' => (int) ($data['geofence_radius_m'] ?? $market->geofence_radius_m ?? Market::DEFAULT_GEOFENCE_RADIUS_M),
             'is_active' => $request->boolean('is_active'),
         ]);
-        $logger->log(Auth::guard('admin')->user(), 'Updated market', Market::class, $market->id);
+        $logger->log(Auth::guard('admin')->user(), 'Updated market', Market::class, $market->id, [
+            'latitude' => $market->latitude,
+            'longitude' => $market->longitude,
+            'geofence_radius_m' => $market->geofence_radius_m,
+        ]);
 
-        return back()->with('status', 'Market updated.');
+        return back()->with('status', "Market \"{$market->name}\" updated.");
     }
 
     public function storeProduct(Request $request, AdminActivityLogger $logger)
