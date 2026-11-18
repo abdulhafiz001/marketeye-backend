@@ -151,6 +151,16 @@
 @php
     $verifiedCount = $markets->filter(fn ($m) => $m->latitude !== null && $m->longitude !== null)->count();
     $unverifiedCount = $markets->count() - $verifiedCount;
+    $existingMarketsForMap = $markets->map(fn ($m) => [
+        'id' => $m->id,
+        'name' => $m->name,
+        'area' => $m->area,
+        'city' => $m->city,
+        'state' => $m->state,
+        'lat' => $m->latitude,
+        'lng' => $m->longitude,
+        'radius' => $m->geofenceRadiusMeters(),
+    ])->values();
 @endphp
 
 <p class="page-hint">
@@ -385,16 +395,7 @@
 <script>
 (function () {
     const ABUJA_CENTER = [9.0765, 7.3986];
-    const existingMarkets = @json($markets->map(fn ($m) => [
-        'id' => $m->id,
-        'name' => $m->name,
-        'area' => $m->area,
-        'city' => $m->city,
-        'state' => $m->state,
-        'lat' => $m->latitude,
-        'lng' => $m->longitude,
-        'radius' => $m->geofenceRadiusMeters(),
-    ])->values());
+    const existingMarkets = @json($existingMarketsForMap);
 
     // Active target: null means "New Market" form; number means editing existing row ID
     let activeRowId = null;
