@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Jobs\ProcessPriceAlertsJob;
 use App\Models\PriceSnapshot;
 use App\Models\PriceSubmission;
+use App\Models\Product;
+use App\Support\UnitNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -13,14 +15,18 @@ class PriceSnapshotService
     public function recomputeFromApprovedSubmissions(int $productId, int $marketId, ?Carbon $since = null): ?PriceSnapshot
     {
         $since = $since ?? now()->subHours(48);
+        $product = Product::query()->find($productId);
 
-        $prices = PriceSubmission::query()
+        $submissions = PriceSubmission::query()
             ->where('product_id', $productId)
             ->where('market_id', $marketId)
             ->where('status', PriceSubmission::STATUS_APPROVED)
             ->where('submitted_at', '>=', $since)
-            ->pluck('price_per_unit')
-            ->map(fn ($p) => (float) $p)
+            ->get(['price_per_unit', 'price', 'quantity_unit']);
+
+        $prices = $submissions
+            ->filter(fn (PriceSubmission $s) => ! $product || UnitNormalizer::areCompatible($s->quantity_unit, $product->unit))
+            ->map(fn (PriceSubmission $s) => (float) ($s->price_per_unit ?: $s->price))
             ->filter(fn (float $p) => $p > 0)
             ->values();
 
@@ -95,35 +101,19 @@ class PriceSnapshotService
     public function runDailyAggregateFromSubmissions(): int
     {
         $since = now()->subHours(48);
-        $rows = PriceSubmission::query()
-            ->select([
-                'product_id',
-                'market_id',
-                DB::raw('COUNT(*) as c'),
-                DB::raw('AVG(COALESCE(price_per_unit, price)) as avg_p'),
-                DB::raw('MIN(COALESCE(price_per_unit, price)) as min_p'),
-                DB::raw('MAX(COALESCE(price_per_unit, price)) as max_p'),
-            ])
+        $pairs = PriceSubmission::query()
+            ->select(['product_id', 'market_id'])
             ->where('status', PriceSubmission::STATUS_APPROVED)
             ->where('submitted_at', '>=', $since)
             ->groupBy('product_id', 'market_id')
             ->get();
 
         $updated = 0;
-        foreach ($rows as $row) {
-            $lowConfidence = (int) $row->c < 2;
-            $this->upsertSnapshot(
-                (int) $row->product_id,
-                (int) $row->market_id,
-                round((float) $row->avg_p, 2),
-                round((float) $row->min_p, 2),
-                round((float) $row->max_p, 2),
-                (int) $row->c,
-                $lowConfidence,
-                PriceSnapshot::SOURCE_SUBMISSION_AGGREGATE,
-                now()->toDateString()
-            );
-            $updated++;
+        foreach ($pairs as $pair) {
+            $snap = $this->recomputeFromApprovedSubmissions((int) $pair->product_id, (int) $pair->market_id, $since);
+            if ($snap) {
+                $updated++;
+            }
         }
 
         return $updated;

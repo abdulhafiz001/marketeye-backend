@@ -32,6 +32,8 @@ class BatchPriceSubmitController extends Controller
         $results = [];
         $accepted = 0;
         $failed = 0;
+        $totalPoints = 0;
+        $totalWallet = 0;
 
         foreach ($data['submissions'] as $index => $row) {
             $validator = Validator::make($row, [
@@ -56,15 +58,21 @@ class BatchPriceSubmitController extends Controller
                 $created = $submissions->submit($user, $row);
                 $submission = $created['submission'];
                 $accepted++;
+                $totalPoints += (int) $created['points_awarded'];
+                $totalWallet += (int) $created['wallet_awarded'];
                 $results[] = [
                     'index' => $index,
                     'client_id' => $row['client_id'] ?? null,
                     'ok' => true,
                     'submission' => [
                         'id' => $submission->id,
+                        'product_id' => (int) $submission->product_id,
+                        'product_name' => $created['product']->name,
+                        'quantity_unit' => $submission->quantity_unit,
                         'status' => $submission->status,
                         'auto_approved' => $created['auto_approved'],
                         'points_awarded' => $created['points_awarded'],
+                        'wallet_awarded' => $created['wallet_awarded'],
                     ],
                 ];
             } catch (\Illuminate\Validation\ValidationException $e) {
@@ -91,6 +99,8 @@ class BatchPriceSubmitController extends Controller
         return $this->success([
             'accepted' => $accepted,
             'failed' => $failed,
+            'points_awarded' => $totalPoints,
+            'wallet_awarded' => $totalWallet,
             'results' => $results,
             'user' => [
                 'points' => (int) $user->points,

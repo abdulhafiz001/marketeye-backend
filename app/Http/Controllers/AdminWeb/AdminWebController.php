@@ -286,43 +286,55 @@ class AdminWebController extends Controller
     public function catalogSuggestions(): View
     {
         return view('admin.catalog-suggestions', [
-            'suggestions' => CatalogSuggestion::query()->with(['user', 'category'])
-                ->where('status', 'pending')->orderBy('created_at')->limit(200)->get(),
+            'suggestions' => CatalogSuggestion::query()
+                ->with(['user', 'category'])
+                ->orderByRaw("CASE WHEN status = 'pending' THEN 0 WHEN status = 'approved' THEN 1 ELSE 2 END")
+                ->orderByDesc('created_at')
+                ->limit(200)
+                ->get(),
         ]);
     }
 
-    public function approveCatalogSuggestion(int $id, AdminActivityLogger $logger)
-    {
-        $suggestion = CatalogSuggestion::query()->with('category')->findOrFail($id);
+    public function approveCatalogSuggestion(
+        int $id,
+        AdminActivityLogger $logger,
+        GamificationService $gamification,
+        WalletService $wallet
+    ) {
+        $suggestion = CatalogSuggestion::query()->with(['category', 'user'])->findOrFail($id);
         if ($suggestion->status !== 'pending') {
             return back()->withErrors(['suggestion' => 'This suggestion has already been reviewed.']);
         }
 
-        $result = DB::transaction(function () use ($suggestion) {
-            if (Product::query()->whereRaw('LOWER(name) = ?', [Str::lower($suggestion->product_name)])->where('is_active', true)->exists()) {
-                return null;
-            }
-
+        $result = DB::transaction(function () use ($suggestion, $gamification, $wallet) {
             $category = $suggestion->category;
             if (! $category && $suggestion->category_name) {
                 $category = Category::query()->firstOrCreate(
                     ['slug' => Str::slug($suggestion->category_name)],
-                    ['name' => $suggestion->category_name, 'icon' => 'basket']
+                    ['name' => $suggestion->category_name, 'icon' => 'basket-outline']
                 );
             }
             if (! $category) {
                 return null;
             }
-            $product = Product::query()->create([
-                'category_id' => $category->id,
-                'name' => $suggestion->product_name,
-                'slug' => Str::slug($suggestion->product_name).'-'.Str::lower(Str::random(6)),
-                'unit' => $suggestion->unit,
-                'is_active' => true,
-            ]);
+
+            $product = Product::query()
+                ->whereRaw('LOWER(name) = ?', [Str::lower($suggestion->product_name)])
+                ->where('is_active', true)
+                ->first();
+
+            if (! $product) {
+                $product = Product::query()->create([
+                    'category_id' => $category->id,
+                    'name' => $suggestion->product_name,
+                    'slug' => Str::slug($suggestion->product_name).'-'.Str::lower(Str::random(6)),
+                    'unit' => $suggestion->unit,
+                    'is_active' => true,
+                ]);
+            }
 
             foreach ($suggestion->market_prices as $row) {
-                PriceSubmission::query()->create([
+                $sub = PriceSubmission::query()->create([
                     'product_id' => $product->id,
                     'market_id' => $row['market_id'],
                     'user_id' => $suggestion->user_id,
@@ -334,11 +346,18 @@ class AdminWebController extends Controller
                     'latitude' => $row['latitude'],
                     'longitude' => $row['longitude'],
                     'is_outlier' => false,
-                    'notes' => 'Price included with approved product suggestion.',
-                    'status' => PriceSubmission::STATUS_PENDING,
-                    'submitted_at' => $suggestion->created_at,
+                    'notes' => $suggestion->reason ?: 'Price included with user product submission.',
+                    'status' => PriceSubmission::STATUS_APPROVED,
+                    'submitted_at' => $suggestion->created_at ?? now(),
+                    'reviewed_at' => now(),
                     'wallet_rewarded' => false,
                 ]);
+
+                if ($suggestion->user) {
+                    $gamification->awardPointsOnSubmission($suggestion->user, 10);
+                }
+                $gamification->recomputeSnapshotIfApproved($sub);
+                $wallet->awardForVerifiedSubmission($sub);
             }
 
             $suggestion->update(['status' => 'approved']);
@@ -347,24 +366,38 @@ class AdminWebController extends Controller
         });
 
         if (! $result) {
-            return back()->withErrors(['suggestion' => 'Could not approve. The category may be missing or the product may already exist.']);
+            return back()->withErrors(['suggestion' => 'Could not approve. The category may be missing.']);
         }
 
         $logger->log(Auth::guard('admin')->user(), 'Approved catalog suggestion', CatalogSuggestion::class, $suggestion->id, ['product_id' => $result->id]);
 
-        return back()->with('status', 'Product added. Its submitted prices are pending price review.');
+        return back()->with('status', 'Product and its market prices are now live in the app.');
     }
 
     public function rejectCatalogSuggestion(int $id, AdminActivityLogger $logger)
     {
         $suggestion = CatalogSuggestion::query()->findOrFail($id);
-        if ($suggestion->status !== 'pending') {
-            return back()->withErrors(['suggestion' => 'This suggestion has already been reviewed.']);
+        if ($suggestion->status === 'rejected') {
+            return back()->withErrors(['suggestion' => 'This suggestion has already been rejected.']);
         }
-        $suggestion->update(['status' => 'rejected']);
+
+        DB::transaction(function () use ($suggestion) {
+            // If the product was auto-published from this suggestion, deactivate it if admin rejects it later
+            $product = Product::query()
+                ->whereRaw('LOWER(name) = ?', [Str::lower($suggestion->product_name)])
+                ->whereRaw('LOWER(unit) = ?', [Str::lower($suggestion->unit)])
+                ->first();
+
+            if ($product) {
+                $product->update(['is_active' => false]);
+            }
+
+            $suggestion->update(['status' => 'rejected']);
+        });
+
         $logger->log(Auth::guard('admin')->user(), 'Rejected catalog suggestion', CatalogSuggestion::class, $suggestion->id);
 
-        return back()->with('status', 'Product suggestion rejected.');
+        return back()->with('status', 'Product suggestion rejected and removed from active catalog.');
     }
 
     public function categories(): View
